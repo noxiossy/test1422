@@ -81,6 +81,7 @@
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
+#include <typeinfo.h>
 //#include <process.h>
 
 #ifndef DEBUG
@@ -188,7 +189,6 @@
 #include <list>
 #include <set>
 #include <map>
-#include <typeinfo>
 
 #ifndef _EDITOR
 # include <hash_map>
