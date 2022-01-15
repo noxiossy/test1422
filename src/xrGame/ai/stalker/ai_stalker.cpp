@@ -472,7 +472,7 @@ void CAI_Stalker::Die				(CObject* who)
 
 	if(m_death_sound_enabled)
 	{
-		sound().set_sound_mask		((u32)eStalkerSoundMaskDie);
+		//sound().set_sound_mask		((u32)eStalkerSoundMaskDie);
 		if (is_special_killer(who))
 			sound().play			(eStalkerSoundDieInAnomaly);
 		else
@@ -1387,7 +1387,7 @@ bool CAI_Stalker::unlimited_ammo()
 
 void CAI_Stalker::ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect)
 {
-	IKinematics* pKinematics = renderable.visual->dcast_PKinematics();
+	IKinematics* pKinematics = smart_cast<IKinematics*>(Visual());
 	CInifile* ini = pKinematics->LL_UserData();
 	if (ini)
 	{
@@ -1399,7 +1399,6 @@ void CAI_Stalker::ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect)
 
 		if (bone_sect || ini->line_exist("bone_protection", "bones_protection_sect"))
 		{
-			//m_boneHitProtection = xr_new<SBoneProtections>();
 			bone_sect = ini->r_string("bone_protection", "bones_protection_sect");
 			m_boneHitProtection->reload(bone_sect, pKinematics);
 		}

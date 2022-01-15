@@ -328,16 +328,9 @@ bool CUIActorMenu::CanMoveToPartner(PIItem pItem)
 
 void CUIActorMenu::UpdateActor()
 {
-	if ( IsGameTypeSingle() )
-	{
-		string64 buf;
-		xr_sprintf( buf, "%d RU", m_pActorInvOwner->get_money() );
-		m_ActorMoney->SetText( buf );
-	}
-	else
-	{
-		UpdateActorMP();
-	}
+	string64 buf;
+	xr_sprintf( buf, "%d RU", m_pActorInvOwner->get_money() );
+	m_ActorMoney->SetText( buf );
 	
 	CActor* actor = smart_cast<CActor*>( m_pActorInvOwner );
 	if ( actor )
@@ -550,6 +543,15 @@ void CUIActorMenu::DonateCurrentItem(CUICellItem* cell_item)
 	PIItem item = (PIItem)cell_item->m_pData;
 	if (!item)
 		return;
+
+	//Alundaio: 
+	luabind::functor<bool> funct;
+	if (ai().script_engine().functor("actor_menu_inventory.CUIActorMenu_DonateCurrentItem", funct))
+	{
+		if (funct(m_pPartnerInvOwner->cast_game_object()->lua_game_object(), item->object().lua_game_object()) == false)
+			return;
+	}
+	//-Alundaio
 
 	CUICellItem* itm = invlist->RemoveItem(cell_item, false);
 

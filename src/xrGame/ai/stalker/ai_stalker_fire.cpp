@@ -53,6 +53,11 @@
 
 #include "../../trajectories.h"
 
+//Alun
+#include "script_hit.h"
+#include "../../xrServerEntities/script_engine.h" 
+//-Alun
+
 using namespace StalkerSpace;
 using namespace luabind;
 
@@ -327,6 +332,28 @@ void CAI_Stalker::Hit(SHit* pHDS)
 
 	if ( g_Alive() && ( !m_hit_callback || m_hit_callback( &HDS ) ) )
 	{
+		CScriptHit tLuaHit;
+
+		tLuaHit.m_fPower = HDS.power;
+		tLuaHit.m_fImpulse = HDS.impulse;
+		tLuaHit.m_tDirection = HDS.direction();
+		tLuaHit.m_tHitType = HDS.hit_type;
+		tLuaHit.m_tpDraftsman = smart_cast<const CGameObject*>(HDS.who)->lua_game_object();
+
+		luabind::functor<bool>	funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__BeforeHitCallback", funct))
+		{
+			if (!funct(this->lua_game_object(), &tLuaHit, HDS.boneID))
+				return;
+		}
+
+		HDS.power = tLuaHit.m_fPower;
+		HDS.impulse = tLuaHit.m_fImpulse;
+		HDS.dir = tLuaHit.m_tDirection;
+		HDS.hit_type = (ALife::EHitType)(tLuaHit.m_tHitType);
+		//HDS.who = smart_cast<CObject*>(tLuaHit.m_tpDraftsman->object());
+		//HDS.whoID = tLuaHit.m_tpDraftsman->ID();
+
 		float const damage_factor	= invulnerable() ? 0.f : 100.f;
 		memory().hit().add			( damage_factor*HDS.damage(), HDS.direction(), HDS.who, HDS.boneID );
 	}
@@ -378,151 +405,160 @@ void CAI_Stalker::update_best_item_info	()
 
 void CAI_Stalker::update_best_item_info_impl()
 {
-
 	luabind::functor<CScriptGameObject*> funct;
 	if (ai().script_engine().functor("ai_stalker.update_best_weapon", funct))
 	{
-		CGameObject* cur_itm = smart_cast<CGameObject*>(m_best_item_to_kill);
-		CScriptGameObject* GO = funct(this->lua_game_object(),cur_itm ? cur_itm->lua_game_object() : NULL);
-		CInventoryItem* bw = GO ? smart_cast<CInventoryItem*>(&GO->object()): NULL;
-		if (bw)
+		CScriptGameObject* GO = funct(this->lua_game_object(), m_best_item_to_kill ? m_best_item_to_kill->cast_game_object()->lua_game_object() : NULL);
+		if (GO) 
 		{
-			m_best_item_to_kill = bw;
-			m_best_ammo = bw;
-			return;
-		}
-	}
-
-	ai().ef_storage().alife_evaluation(false);
-	/* Alundaio: This is what causes stalkers to switch weapons during combat; It's stupid
-	if	(
-			m_item_actuality &&
-			m_best_item_to_kill &&
-			m_best_item_to_kill->can_kill()
-		) {
-		
-		if (!memory().enemy().selected()) 
-			return;
-
-		ai().ef_storage().non_alife().member()	= this;
-		ai().ef_storage().non_alife().enemy()	= memory().enemy().selected() ? memory().enemy().selected() : this;
-		ai().ef_storage().non_alife().member_item()	= &m_best_item_to_kill->object();
-		float									value;
-		value									= ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
-		if (fsimilar(value,m_best_item_value))
-			return;
-	}
-	*/
-
-	// initialize parameters
-	m_item_actuality							= true;
-	ai().ef_storage().non_alife().member()		= this;
-	ai().ef_storage().non_alife().enemy()		= memory().enemy().selected() ? memory().enemy().selected() : this;
-	m_best_item_to_kill			= 0;
-	m_best_ammo					= 0;
-	m_best_found_item_to_kill	= 0;
-	m_best_found_ammo			= 0;
-	m_best_item_value			= 0.f;
-
-	// try to find the best item which can kill
-	{
-		TIItemContainer::iterator					I = inventory().m_all.begin();
-		TIItemContainer::iterator					E = inventory().m_all.end();
-		for ( ; I != E; ++I) {
-			if ((*I)->can_kill()) {
-				ai().ef_storage().non_alife().member_item()	= &(*I)->object();
-				float								value;
-				if (memory().enemy().selected())
-					value							= ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
-				else
-					value							= (float)(*I)->Cost();
-
-				if (!fsimilar(value,m_best_item_value) && (value < m_best_item_value))
-					continue;
-
-				if (!fsimilar(value,m_best_item_value) && (value > m_best_item_value)) {
-					m_best_item_value	= value;
-					m_best_item_to_kill = *I;
-					continue;
-				}
-
-				VERIFY					(fsimilar(value,m_best_item_value));
-				if (m_best_item_to_kill && ((*I)->Cost() <= m_best_item_to_kill->Cost()))
-					continue;
-
-				m_best_item_value		= value;
-				m_best_item_to_kill		= *I;
+			CInventoryItem* bw = GO->object().cast_inventory_item();
+			if (bw)
+			{
+				m_item_actuality = true;
+				m_best_item_to_kill = bw;
+				m_best_ammo = bw;
+				m_best_item_value = flt_max;
+				return;
 			}
 		}
 	}
+	
+    ai().ef_storage().alife_evaluation(false);
+    if (m_item_actuality && m_best_item_to_kill && m_best_item_to_kill->can_kill())
+    {
+        if (!memory().enemy().selected())
+            return;
 
-	// check if we found
-	if (m_best_item_to_kill) {
-		m_best_ammo				= m_best_item_to_kill;
-		return;
-	}
+        ai().ef_storage().non_alife().member() = this;
+        ai().ef_storage().non_alife().enemy() = memory().enemy().selected() ? memory().enemy().selected() : this;
+        ai().ef_storage().non_alife().member_item() = &m_best_item_to_kill->object();
+        float value;
+        value = ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
+        if (fsimilar(value, m_best_item_value))
+            return;
+    }
 
-	// so we do not have such an item
-	// check if we remember we saw item which can kill
-	// or items which can make my item killing
-	{
-		xr_vector<const CGameObject*>::const_iterator	I = memory().item().objects().begin();
-		xr_vector<const CGameObject*>::const_iterator	E = memory().item().objects().end();
-		for ( ; I != E; ++I) {
-			const CInventoryItem	*inventory_item = smart_cast<const CInventoryItem*>(*I);
-			if (!inventory_item || !memory().item().useful(&inventory_item->object()))
-				continue;
-			CInventoryItem			*item			= inventory_item->can_kill(&inventory());
-			if (item) {
-				ai().ef_storage().non_alife().member_item()	= &inventory_item->object();
-				float value							= ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
-				if (value > m_best_item_value) {
-					m_best_item_value				= value;
-					m_best_found_item_to_kill		= inventory_item;
-					m_best_found_ammo				= 0;
-					m_best_ammo						= item;
-				}
-			}
-			else {
-				item								= inventory_item->can_make_killing(&inventory());
-				if (!item)
-					continue;
+    // initialize parameters
+    m_item_actuality = true;
+    ai().ef_storage().non_alife().member() = this;
+    ai().ef_storage().non_alife().enemy() = memory().enemy().selected() ? memory().enemy().selected() : this;
+    m_best_item_to_kill = 0;
+    m_best_ammo = 0;
+    m_best_found_item_to_kill = 0;
+    m_best_found_ammo = 0;
+    m_best_item_value = 0.f;
 
-				ai().ef_storage().non_alife().member_item()	= &item->object();
-				float value							= ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
-				if (value > m_best_item_value) {
-					m_best_item_value				= value;
-					m_best_item_to_kill				= item;
-					m_best_found_item_to_kill		= 0;
-					m_best_found_ammo				= inventory_item;
-				}
-			}
-		}
-	}
+    // try to find the best item which can kill
+    {
+        TIItemContainer::iterator I = inventory().m_all.begin();
+        TIItemContainer::iterator E = inventory().m_all.end();
+        for (; I != E; ++I)
+        {
+            if ((*I)->can_kill())
+            {
+                ai().ef_storage().non_alife().member_item() = &(*I)->object();
+                float value;
+                if (memory().enemy().selected())
+                    value = ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
+                else
+                    value = (float)(*I)->Cost();
 
-	// check if we found such an item
-	if (m_best_found_item_to_kill || m_best_found_ammo)
-		return;
+                if (!fsimilar(value, m_best_item_value) && (value < m_best_item_value))
+                    continue;
 
-	// check if we remember we saw item to kill
-	// and item which can make this item killing
-	xr_vector<const CGameObject*>::const_iterator	I = memory().item().objects().begin();
-	xr_vector<const CGameObject*>::const_iterator	E = memory().item().objects().end();
-	for ( ; I != E; ++I) {
-		const CInventoryItem	*inventory_item = smart_cast<const CInventoryItem*>(*I);
-		if (!inventory_item || !memory().item().useful(&inventory_item->object()))
-			continue;
-		const CInventoryItem	*item = inventory_item->can_kill(memory().item().objects());
-		if (item) {
-			ai().ef_storage().non_alife().member_item()	= &inventory_item->object();
-			float value							= ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
-			if (value > m_best_item_value) {
-				m_best_item_value			= value;
-				m_best_found_item_to_kill	= inventory_item;
-				m_best_found_ammo			= item;
-			}
-		}
-	}
+                if (!fsimilar(value, m_best_item_value) && (value > m_best_item_value))
+                {
+                    m_best_item_value = value;
+                    m_best_item_to_kill = *I;
+                    continue;
+                }
+
+                VERIFY(fsimilar(value, m_best_item_value));
+                if (m_best_item_to_kill && ((*I)->Cost() <= m_best_item_to_kill->Cost()))
+                    continue;
+
+                m_best_item_value = value;
+                m_best_item_to_kill = *I;
+            }
+        }
+    }
+
+    // check if we found
+    if (m_best_item_to_kill)
+    {
+        m_best_ammo = m_best_item_to_kill;
+        return;
+    }
+
+    // so we do not have such an item
+    // check if we remember we saw item which can kill
+    // or items which can make my item killing
+    {
+        xr_vector<const CGameObject*>::const_iterator I = memory().item().objects().begin();
+        xr_vector<const CGameObject*>::const_iterator E = memory().item().objects().end();
+        for (; I != E; ++I)
+        {
+            const CInventoryItem* inventory_item = smart_cast<const CInventoryItem*>(*I);
+            if (!inventory_item || !memory().item().useful(&inventory_item->object()))
+                continue;
+            CInventoryItem* item = inventory_item->can_kill(&inventory());
+            if (item)
+            {
+                ai().ef_storage().non_alife().member_item() = &inventory_item->object();
+                float value = ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
+                if (value > m_best_item_value)
+                {
+                    m_best_item_value = value;
+                    m_best_found_item_to_kill = inventory_item;
+                    m_best_found_ammo = 0;
+                    m_best_ammo = item;
+                }
+            }
+            else
+            {
+                item = inventory_item->can_make_killing(&inventory());
+                if (!item)
+                    continue;
+
+                ai().ef_storage().non_alife().member_item() = &item->object();
+                float value = ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
+                if (value > m_best_item_value)
+                {
+                    m_best_item_value = value;
+                    m_best_item_to_kill = item;
+                    m_best_found_item_to_kill = 0;
+                    m_best_found_ammo = inventory_item;
+                }
+            }
+        }
+    }
+
+    // check if we found such an item
+    if (m_best_found_item_to_kill || m_best_found_ammo)
+        return;
+
+    // check if we remember we saw item to kill
+    // and item which can make this item killing
+    xr_vector<const CGameObject*>::const_iterator I = memory().item().objects().begin();
+    xr_vector<const CGameObject*>::const_iterator E = memory().item().objects().end();
+    for (; I != E; ++I)
+    {
+        const CInventoryItem* inventory_item = smart_cast<const CInventoryItem*>(*I);
+        if (!inventory_item || !memory().item().useful(&inventory_item->object()))
+            continue;
+        const CInventoryItem* item = inventory_item->can_kill(memory().item().objects());
+        if (item)
+        {
+            ai().ef_storage().non_alife().member_item() = &inventory_item->object();
+            float value = ai().ef_storage().m_pfWeaponEffectiveness->ffGetValue();
+            if (value > m_best_item_value)
+            {
+                m_best_item_value = value;
+                m_best_found_item_to_kill = inventory_item;
+                m_best_found_ammo = item;
+            }
+        }
+    }
 }
 
 bool CAI_Stalker::item_to_kill			()
@@ -719,7 +755,7 @@ void CAI_Stalker::update_can_kill_info	()
 
 bool CAI_Stalker::undetected_anomaly	()
 {
-	return					(inside_anomaly() || brain().CStalkerPlanner::m_storage.property(StalkerDecisionSpace::eWorldPropertyAnomaly));
+	return					(inside_anomaly() /*|| brain().CStalkerPlanner::m_storage.property(StalkerDecisionSpace::eWorldPropertyAnomaly)*/);
 }
 
 bool CAI_Stalker::inside_anomaly		()
@@ -728,7 +764,7 @@ bool CAI_Stalker::inside_anomaly		()
 	xr_vector<CObject*>::const_iterator	E = feel_touch.end();
 	for ( ; I != E; ++I) {
 		CCustomZone			*zone = smart_cast<CCustomZone*>(*I);
-		if ( zone && (zone->restrictor_type() != RestrictionSpace::eRestrictorTypeNone) ) {
+		if ( zone /* && (zone->restrictor_type() != RestrictionSpace::eRestrictorTypeNone) */) {
 			if (smart_cast<CRadioactiveZone*>(zone))
 				continue;
 

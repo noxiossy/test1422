@@ -9,6 +9,7 @@ enum FS_List
     FS_ListFolders = (1 << 1),
     FS_ClampExt = (1 << 2),
     FS_RootOnly = (1 << 3),
+	FS_FullName = (1 << 4), //Alundaio: full path name
     FS_forcedword = u32(-1)
 };
 
@@ -62,7 +63,7 @@ struct XRCORE_API FS_File
     xr_string name; // low-case name
     void set(const xr_string& nm, long sz, time_t modif, unsigned attr);
 public:
-    FS_File() {}
+	FS_File() { attrib = 0; time_write = 0; size = 0; }
     FS_File(const xr_string& nm);
     FS_File(const _FINDDATA_T& f);
     FS_File(const xr_string& nm, const _FINDDATA_T& f);

@@ -255,7 +255,17 @@ u32	vertex_in_direction(u32 level_vertex_id, Fvector direction, float max_distan
 
 Fvector vertex_position(u32 level_vertex_id)
 {
+	if (!ai().level_graph().valid_vertex_id(level_vertex_id))
+	{
+		ai().script_engine().print_stack();
+		Msg("level.vertex_position | Invalid vertex id %d", level_vertex_id);
+	}
 	return			(ai().level_graph().vertex_position(level_vertex_id));
+}
+
+bool valid_vertex(u32 level_vertex_id)
+{
+	return ai().level_graph().valid_vertex_id(level_vertex_id);
 }
 
 void map_add_object_spot(u16 id, LPCSTR spot_type, LPCSTR text)
@@ -293,6 +303,11 @@ u16 map_has_object_spot(u16 id, LPCSTR spot_type)
 	return Level().MapManager().HasMapLocation(spot_type, id);
 }
 
+CMapManager* get_map_manager()
+{
+	return &Level().MapManager();
+}
+
 bool patrol_path_exists(LPCSTR patrol_path)
 {
 	return		(!!ai().patrol_paths().path(patrol_path,true));
@@ -306,6 +321,22 @@ LPCSTR get_name()
 void prefetch_sound	(LPCSTR name)
 {
 	Level().PrefetchSound(name);
+}
+
+CScriptGameObject* get_view_entity_script()
+{
+	CGameObject* pGameObject = smart_cast<CGameObject*>(Level().CurrentViewEntity());
+	if (!pGameObject)
+		return (0);
+
+	return pGameObject->lua_game_object();
+}
+
+void set_view_entity_script(CScriptGameObject* go)
+{
+	CObject* o = smart_cast<CObject*>(&go->object());
+	if (o)
+		Level().SetViewEntity(o);
 }
 
 
@@ -802,6 +833,11 @@ xrTime get_start_time()
 	return (xrTime(Level().GetStartGameTime()));
 }
 
+void reload_language()
+{
+	CStringTable().ReloadLanguage();
+}
+
 #pragma optimize("s",on)
 void CLevel::script_register(lua_State *L)
 {
@@ -822,10 +858,13 @@ void CLevel::script_register(lua_State *L)
 		def("get_target_obj", &g_get_target_obj), //intentionally named to what is in xray extensions
 		def("get_target_dist", &g_get_target_dist),
 		def("get_target_element", &g_get_target_element), //Can get bone cursor is targetting
+		def("get_view_entity", &get_view_entity_script),
+		def("set_view_entity", &set_view_entity_script),
 		def("spawn_item", &spawn_section),
 		def("get_active_cam", &get_active_cam),
 		def("set_active_cam", &set_active_cam),
 		def("get_start_time", &get_start_time),
+		def("valid_vertex", &valid_vertex),
 #endif
 		//Alundaio: END
 		// obsolete\deprecated
@@ -874,6 +913,7 @@ void CLevel::script_register(lua_State *L)
 		def("map_remove_object_spot",			map_remove_object_spot),
 		def("map_has_object_spot",				map_has_object_spot),
 		def("map_change_spot_hint",				map_change_spot_hint),
+		def("map_manager",						get_map_manager),
 
 		def("add_dialog_to_render",				add_dialog_to_render),
 		def("remove_dialog_to_render",			remove_dialog_to_render),
@@ -1021,7 +1061,9 @@ void CLevel::script_register(lua_State *L)
 	def("start_tutorial",		&start_tutorial),
 	def("stop_tutorial",		&stop_tutorial),
 	def("has_active_tutorial",	&has_active_tutotial),
-	def("translate_string",		&translate_string)
+	def("translate_string",		&translate_string),
+	def("reload_language",		&reload_language),
+	def("log_stack_trace",		&LogStackTrace)
 
 	];
 }

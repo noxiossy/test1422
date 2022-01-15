@@ -11,6 +11,7 @@
 #include "../Include/xrRender/Kinematics.h"
 #include "object_broker.h"
 #include "ActorHelmet.h"
+#include "ActorBackpack.h"
 
 #define MAX_HEALTH 1.0f
 #define MIN_HEALTH -0.01f
@@ -231,7 +232,7 @@ void  CEntityCondition::UpdateWounds		()
 
 void CEntityCondition::UpdateConditionTime()
 {
-	u64 _cur_time = (GameID() == eGameIDSingle) ? Level().GetGameTime() : Level().timeServer();
+	u64 _cur_time = Level().GetGameTime();
 	
 	if(m_bTimeValid)
 	{
@@ -359,11 +360,10 @@ float CEntityCondition::HitPowerEffect(float power_loss)
 	if(!pInvOwner)					 return power_loss;
 
 	CCustomOutfit* pOutfit			= pInvOwner->GetOutfit();
-	if(!pOutfit)					return power_loss*0.5f;
-
-	float new_power_loss			= power_loss*pOutfit->m_fPowerLoss;
-
-	return							new_power_loss;
+	CHelmet* pHelmet = (CHelmet*)pInvOwner->inventory().ItemFromSlot(HELMET_SLOT);
+	CBackpack* pBackpack = (CBackpack*)pInvOwner->inventory().ItemFromSlot(BACKPACK_SLOT);
+	
+	return power_loss * (0.5f +(pOutfit?pOutfit->m_fPowerLoss:EPS) + (pHelmet?pHelmet->m_fPowerLoss:EPS) + (pBackpack?pBackpack->m_fPowerLoss:EPS));
 }
 
 CWound* CEntityCondition::AddWound(float hit_power, ALife::EHitType hit_type, u16 element)
@@ -404,8 +404,6 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 	//кто нанес последний хит
 	m_pWho = pHDS->who;
 	m_iWhoID = (NULL != pHDS->who) ? pHDS->who->ID() : 0;
-
-	bool const is_special_hit_2_self		=	(pHDS->who == m_object) && (pHDS->boneID == BI_NONE);
 
 	bool bAddWound = pHDS->add_wound;
 	
@@ -493,11 +491,6 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 		}break;
 	}
 
-	if (bDebug && !is_special_hit_2_self ) 
-	{
-		Msg("%s hitted in %s with %f[%f]", m_object->Name(), 
-			smart_cast<IKinematics*>(m_object->Visual())->LL_BoneName_dbg(pHDS->boneID), m_fHealthLost*100.0f, hit_power_org);
-	}
 	//раны добавляются только живому
 	if( bAddWound && GetHealth()>0 )
 	{

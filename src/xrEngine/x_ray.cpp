@@ -137,7 +137,7 @@ void compute_build_id()
     string16 month;
     string256 buffer;
     xr_strcpy(buffer, __DATE__);
-    sscanf(buffer, "%s %d %d", month, &days, &years);
+    sscanf(buffer, "%s %d %d\0", month, &days, &years);
 
     for (int i = 0; i < 12; i++)
     {
@@ -730,7 +730,9 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
                     &HeapFragValue,
                     sizeof(HeapFragValue)
                 );
+#ifdef DEBUG
             VERIFY2(result, "can't set process heap low fragmentation");
+#endif
         }
     }
 
@@ -1261,7 +1263,7 @@ void CApplication::LoadStage()
     phase_timer.Start();
     Msg("* phase cmem: %d K", Memory.mem_usage() / 1024);
 
-	if (g_pGamePersistent->GameType() == 1 && !xr_strcmp(g_pGamePersistent->m_game_params.m_alife, "alife"))
+	if (g_pGamePersistent->GameType() == 1)
         max_load_stage = 17;
     else
         max_load_stage = 14;

@@ -142,7 +142,7 @@ void CUITalkWnd::UpdateQuestions()
 					++it, ++number)
 				{
 					CPhrase* phrase = *it;
-					AddQuestion(m_pCurrentDialog->GetPhraseText(phrase->GetID()), phrase->GetID(), number, phrase->IsFinalizer());
+					AddQuestion(m_pCurrentDialog->GetPhraseText(phrase->GetID() ), phrase->GetID(), number, phrase->IsFinalizer());
 				}
 			}
 			else
@@ -160,21 +160,15 @@ void CUITalkWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 	if(pWnd == UITalkDialogWnd && msg == TALK_DIALOG_TRADE_BUTTON_CLICKED)
 	{
 		SwitchToTrade();
-		UITalkDialogWnd->Hide();
 	}
 	else if(pWnd == UITalkDialogWnd && msg == TALK_DIALOG_UPGRADE_BUTTON_CLICKED)
 	{
 		SwitchToUpgrade();
-		UITalkDialogWnd->Hide();
 	}
 	else if(pWnd == UITalkDialogWnd && msg == TALK_DIALOG_QUESTION_CLICKED)
 	{
 		AskQuestion();
 	}
-	/*else if (msg == TRADE_WND_CLOSED)
-	{
-		UITalkDialogWnd->Show();
-	}*/
 	inherited::SendMessage(pWnd, msg, pData);
 }
 

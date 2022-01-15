@@ -259,6 +259,25 @@ void CHitMemoryManager::remove_links	(CObject *object)
 #endif
 }
 
+struct CRemoveHitObjectPredicate {
+	const MemorySpace::CHitObject *m_object;
+
+	CRemoveHitObjectPredicate(const MemorySpace::CHitObject *object) : m_object(object)
+	{
+	}
+	bool operator() (const MemorySpace::CHitObject &object) const
+	{
+		return (m_object == &object);
+	}
+};
+
+void CHitMemoryManager::remove(const MemorySpace::CHitObject *hit_object)
+{
+	HITS::iterator I = std::find_if(m_hits->begin(), m_hits->end(), CRemoveHitObjectPredicate(hit_object));
+	if (I != m_hits->end())
+		m_hits->erase(I);
+}
+
 void CHitMemoryManager::save	(NET_Packet &packet) const
 {
 	if (!m_object->g_Alive())
@@ -335,17 +354,16 @@ void CHitMemoryManager::load	(IReader &packet)
 		packet.r_float				(object.m_self_params.m_orientation.roll);
 #endif
 #ifdef USE_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= object.m_level_time);
 		object.m_level_time			= packet.r_u32();
-		object.m_level_time			+= Device.dwTimeGlobal;
+		VERIFY(Device.dwTimeGlobal >= object.m_level_time);
+		object.m_level_time			= Device.dwTimeGlobal - object.m_level_time;
 #endif // USE_LEVEL_TIME
 #ifdef USE_LAST_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= object.m_last_level_time);
 		object.m_last_level_time	= packet.r_u32();
-		object.m_last_level_time	+= Device.dwTimeGlobal;
+		VERIFY(Device.dwTimeGlobal >= object.m_last_level_time);
+		object.m_last_level_time	= Device.dwTimeGlobal - object.m_last_level_time;
 #endif // USE_LAST_LEVEL_TIME
 #ifdef USE_FIRST_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= (*I).m_first_level_time);
 		object.m_first_level_time	= packet.r_u32();
 		object.m_first_level_time	+= Device.dwTimeGlobal;
 #endif // USE_FIRST_LEVEL_TIME

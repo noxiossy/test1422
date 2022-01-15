@@ -1,5 +1,4 @@
 #pragma once
-#pragma comment(lib, "dxerr.lib")
 
 // CALLBACKS
 	#define EXTENDED_ITEM_CALLBACKS							// (eItemToBelt, eItemToSlot, eItemToRuck)

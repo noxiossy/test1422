@@ -49,6 +49,8 @@
 #include "../xrEngine/feel_touch.h"
 #include "weaponammo.h"
 #include "WeaponMagazinedWGrenade.h"
+#include "level_path_manager.h"
+#include "game_path_manager.h"
 //-Alundaio
 
 namespace MemorySpace {
@@ -405,6 +407,44 @@ void CScriptGameObject::inactualize_patrol_path		()
 		ai().script_engine().script_log					(ScriptStorage::eLuaMessageTypeError,"CAI_Stalker : cannot access class member movement!");
 	else
 		stalker->movement().patrol().make_inactual();
+}
+
+void CScriptGameObject::inactualize_level_path		()
+{
+	CAI_Stalker					*stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		ai().script_engine().script_log					(ScriptStorage::eLuaMessageTypeError,"CAI_Stalker : cannot access class member movement!");
+	else
+		stalker->movement().level_path().make_inactual();
+}
+
+void CScriptGameObject::inactualize_game_path		()
+{
+	CAI_Stalker					*stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		ai().script_engine().script_log					(ScriptStorage::eLuaMessageTypeError,"CAI_Stalker : cannot access class member movement!");
+	else
+		stalker->movement().game_path().make_inactual();
+}
+
+u32 CScriptGameObject::get_dest_game_vertex_id()
+{
+	CAI_Stalker *stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CAI_Stalker : cannot access class member get_dest_level_vertex_id!");
+	else
+		return (stalker->movement().game_dest_vertex_id());
+	return u32(-1);
+}
+
+u32 CScriptGameObject::get_dest_level_vertex_id()
+{
+	CAI_Stalker *stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CAI_Stalker : cannot access class member get_dest_level_vertex_id!");
+	else
+		return (stalker->movement().level_dest_vertex_id());
+	return u32(-1);
 }
 
 void CScriptGameObject::set_dest_level_vertex_id(u32 level_vertex_id)
@@ -1223,11 +1263,11 @@ void CScriptGameObject::AttachVehicle(CScriptGameObject* veh, bool bForce)
 	CActor *actor = smart_cast<CActor*>(&object());
 	if (actor)
 	{
-		CHolderCustom* vehicle = veh->object().cast_holder_custom();
+		CHolderCustom* vehicle = smart_cast<CHolderCustom*>(&veh->object());
 		if (vehicle)
-		{
 			actor->use_HolderEx(vehicle, bForce);
-		}
+		else
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : cannot be cast to CHolderCustom!");
 	}
 }
 
@@ -1436,7 +1476,7 @@ u8 CScriptGameObject::GetMaxUses()
 	return eItm->GetMaxUses();
 }
 
-void CScriptGameObject::IterateFeelTouch(luabind::functor<void> functor)
+void CScriptGameObject::IterateFeelTouch(const luabind::functor<bool> &functor)
 {
 	Feel::Touch* touch = smart_cast<Feel::Touch*>(&object());
 	if (touch)
@@ -1446,7 +1486,8 @@ void CScriptGameObject::IterateFeelTouch(luabind::functor<void> functor)
 		for (; I != E; ++I) {
 			CObject* o = smart_cast<CObject*>(*I);
 			if (o)
-				functor(o->ID());
+				if (functor(o->ID()) == true)
+					return;
 		}
 	}
 }
@@ -1467,7 +1508,7 @@ u8 CScriptGameObject::GetRestrictionType()
 	if (restr)
 		return restr->m_space_restrictor_type;
 
-	return (-1);
+	return u8(-1);
 }
 
 void CScriptGameObject::SetRestrictionType(u8 typ)
@@ -1479,6 +1520,17 @@ void CScriptGameObject::SetRestrictionType(u8 typ)
 		if (typ != RestrictionSpace::eRestrictorTypeNone)
 			Level().space_restriction_manager().register_restrictor(restr, RestrictionSpace::ERestrictorTypes(typ));
 	}
+}
+
+#include "danger_manager.h"
+#include "danger_object.h"
+void CScriptGameObject::RemoveDanger(const CDangerObject& dobject)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		return;
+
+	stalker->memory().danger().remove(dobject);
 }
 #endif
 //-Alundaio

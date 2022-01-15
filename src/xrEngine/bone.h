@@ -95,7 +95,7 @@ struct ENGINE_API vertBoned2W // (1+3+3 + 1+3+3 + 2)*4 = 16*4 = 64 bytes
     Fvector B;
     float w;
     float u, v;
-    void get_pos(Fvector& p) { p.set(P); }
+	void get_pos(Fvector& p) const { p.set(P); }
 #ifdef DEBUG
     static const u8 bones_count = 2;
     u16 get_bone_id(u8 bone)const { VERIFY(bone < bones_count); return bone == 0 ? matrix0 : matrix1; }
@@ -110,7 +110,7 @@ struct ENGINE_API vertBoned3W // 70 bytes
     Fvector B;
     float w[2];
     float u, v;
-    void get_pos(Fvector& p) { p.set(P); }
+	void get_pos(Fvector& p) const { p.set(P); }
 #ifdef DEBUG
     static const u8 bones_count = 3;
     u16 get_bone_id(u8 bone)const { VERIFY(bone < bones_count); return m[bone]; }
@@ -125,7 +125,7 @@ struct ENGINE_API vertBoned4W //76 bytes
     Fvector B;
     float w[3];
     float u, v;
-    void get_pos(Fvector& p) { p.set(P); }
+	void get_pos(Fvector& p) const { p.set(P); }
 #ifdef DEBUG
     static const u8 bones_count = 4;
     u16 get_bone_id(u8 bone)const { VERIFY(bone < bones_count); return m[bone]; }
@@ -225,7 +225,7 @@ struct ECORE_API SJointIKData
 
     float friction;
 
-    SJointIKData() { Reset(); }
+    SJointIKData():friction(0.f) { Reset(); }
     void Reset()
     {
         limits[0].Reset();
@@ -489,7 +489,7 @@ public:
     DEFINE_VECTOR(FacesVec, ChildFacesVec, ChildFacesVecIt);
     ChildFacesVec child_faces; // shared
 public:
-    CBoneData(u16 ID) :SelfID(ID) { VERIFY(SelfID != BI_NONE); }
+	CBoneData(u16 ID) :SelfID(ID), ParentID(u16(-1)), game_mtl_idx(u16(-1)), mass(0) { VERIFY(SelfID != BI_NONE); }
     virtual ~CBoneData() {}
 #ifdef DEBUG
     typedef svector<int, 128> BoneDebug;
@@ -524,7 +524,7 @@ public:
     virtual u32 mem_usage()
     {
         u32 sz = sizeof(*this) + sizeof(vecBones::value_type)*children.size();
-        for (ChildFacesVecIt c_it = child_faces.begin(); c_it != child_faces.end(); ++c_it)
+		for (ChildFacesVecIt c_it = child_faces.begin(); c_it != child_faces.end(); c_it++)
             sz += c_it->size()*sizeof(FacesVec::value_type) + sizeof(*c_it);
         return sz;
     }

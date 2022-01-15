@@ -49,10 +49,8 @@ void CActor::IR_OnKeyboardPress(int cmd)
 	{
 	case kWPN_FIRE:
 		{
-			if( (mstate_wishful & mcLookout) && !IsGameTypeSingle() ) return;
-
 			u16 slot = inventory().GetActiveSlot();
-			if(inventory().ActiveItem() && (slot==INV_SLOT_3 || slot==INV_SLOT_2) )
+			if(inventory().ActiveItem() && (slot==INV_SLOT_3 || slot==INV_SLOT_2 || slot==KNIFE_SLOT) )
 				mstate_wishful &=~mcSprint;
 			//-----------------------------
 			if (OnServer())
@@ -120,7 +118,8 @@ void CActor::IR_OnKeyboardPress(int cmd)
 			if(det_active)
 			{
 				CCustomDetector* det			= smart_cast<CCustomDetector*>(det_active);
-				det->ToggleDetector				(g_player_hud->attached_item(0)!=NULL);
+				if (det)
+					det->ToggleDetector				(g_player_hud->attached_item(0)!=NULL);
 				return;
 			}
 		}break;
@@ -171,13 +170,7 @@ void CActor::IR_OnKeyboardPress(int cmd)
 
 				if(itm)
 				{
-					if (IsGameTypeSingle())
-					{
-						inventory().Eat				(itm);
-					} else
-					{
-						inventory().ClientEat		(itm);
-					}
+					inventory().Eat				(itm);
 					
 					StaticDrawableWrapper* _s		= CurrentGameUI()->AddCustomStatic("item_used", true);
 					string1024					str;
@@ -188,6 +181,9 @@ void CActor::IR_OnKeyboardPress(int cmd)
 				}
 			}
 		}break;
+	case kKICK:
+		actor_kick();
+		break;
 	}
 }
 
@@ -333,8 +329,7 @@ bool CActor::use_Holder				(CHolderCustom* holder)
 		if(smart_cast<CCar*>(holderGO))
 			b = use_Vehicle(0);
 		else
-			if (holderGO->CLS_ID==CLSID_OBJECT_W_STATMGUN || holderGO->CLS_ID==CLSID_OBJECT_HOLDER_ENT)
-				b = use_HolderEx(0,false);
+			b = use_HolderEx(0,false);
 
 		if(inventory().ActiveItem()){
 			CHudItem* hi = smart_cast<CHudItem*>(inventory().ActiveItem());
@@ -344,11 +339,10 @@ bool CActor::use_Holder				(CHolderCustom* holder)
 		return b;
 	}else{
 		bool b = false;
-		CGameObject* holderGO			= smart_cast<CGameObject*>(holder);
+		//CGameObject* holderGO			= smart_cast<CGameObject*>(holder);
 		if(smart_cast<CCar*>(holder))
 			b = use_Vehicle(holder);
-
-		if (holderGO->CLS_ID==CLSID_OBJECT_W_STATMGUN || holderGO->CLS_ID==CLSID_OBJECT_HOLDER_ENT)
+		else
 			b = use_HolderEx(holder,false);
 		
 		if(b){//used succesfully
@@ -413,25 +407,21 @@ void CActor::ActorUse()
 
 			VERIFY(pEntityAliveWeLookingAt);
 
-			if (IsGameTypeSingle())
-			{			
-
-				if(pEntityAliveWeLookingAt->g_Alive())
+			if(pEntityAliveWeLookingAt->g_Alive())
+			{
+				TryToTalk();
+			}else
+			{
+				//только если находимся в режиме single
+				CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
+				if ( pGameSP )
 				{
-					TryToTalk();
-				}else
-				{
-					//только если находимся в режиме single
-					CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
-					if ( pGameSP )
+					if ( !m_pPersonWeLookingAt->deadbody_closed_status() )
 					{
-						if ( !m_pPersonWeLookingAt->deadbody_closed_status() )
-						{
-							if(pEntityAliveWeLookingAt->AlreadyDie() && 
-								pEntityAliveWeLookingAt->GetLevelDeathTime()+3000 < Device.dwTimeGlobal)
-								// 99.9% dead
-								pGameSP->StartCarBody(this, m_pPersonWeLookingAt );
-						}
+						if(pEntityAliveWeLookingAt->AlreadyDie() && 
+							pEntityAliveWeLookingAt->GetLevelDeathTime()+3000 < Device.dwTimeGlobal)
+							// 99.9% dead
+							pGameSP->StartCarBody(this, m_pPersonWeLookingAt );
 					}
 				}
 			}
@@ -630,6 +620,66 @@ void CActor::SwitchTorch()
 	}
 }
 
+void CActor::actor_kick()
+{
+	CGameObject *O = ObjectWeLookingAt();
+	if (O)
+	{
+		CEntityAlive *EA = smart_cast<CEntityAlive*>(O);
+		if (EA && EA->g_Alive())
+			return;
+
+		static float kick_impulse = READ_IF_EXISTS(pSettings, r_float, "actor", "kick_impulse", 250.f);
+		Fvector dir = Direction();
+		dir.y = sin(15.f * PI / 180.f);
+		dir.normalize();
+		float mass_f = 1.f;
+		CPhysicsShellHolder *sh = smart_cast<CPhysicsShellHolder*>(O);
+		if (sh)
+			mass_f = sh->GetMass();
+
+		PIItem itm = smart_cast<PIItem>(O);
+		if (itm)
+			mass_f = itm->Weight();
+
+		CInventoryOwner *io = smart_cast<CInventoryOwner*> (O);
+		if (io)
+			mass_f += io->inventory().TotalWeight();
+
+		if (mass_f < 1)
+			mass_f = 1;
+
+
+		u16 bone_id = 0;
+		collide::rq_result& RQ = HUD().GetCurrentRayQuery();
+		if (RQ.O == O && RQ.element != 0xffff)
+			bone_id = (u16)RQ.element;
+
+		clamp<float>(mass_f, 0.1f, 100.f); // ограничить параметры хита
+
+		//shell->applyForce(dir, kick_power * conditions().GetPower());
+		Fvector h_pos = O->Position();
+		SHit hit = SHit(0.001f * mass_f, dir, this, bone_id, h_pos, kick_impulse, ALife::eHitTypeStrike, 0.f, false);
+		O->Hit(&hit);
+		if (EA)
+		{
+			static float alive_kick_power = 3.f;
+			float real_imp = kick_impulse / mass_f;
+			dir.mul(pow(real_imp, alive_kick_power));
+			EA->character_physics_support()->movement()->AddControlVel(dir);
+			EA->character_physics_support()->movement()->ApplyImpulse(dir.normalize(), kick_impulse * alive_kick_power);
+		}
+
+
+		conditions().ConditionJump(mass_f / 50);
+		if (mass_f > 5)
+		{
+			hit.boneID = 0;  // пока не ясно, куда лушче ГГ ударить (в ногу надо?)
+			this->Hit(&hit); // сила действия равна силе противодействия
+		}
+	}
+}
+
 #ifdef DEBUG
 void CActor::NoClipFly(int cmd)
 {
@@ -682,7 +732,8 @@ void CActor::NoClipFly(int cmd)
 			if(det_active)
 			{
 				CCustomDetector* det = smart_cast<CCustomDetector*>(det_active);
-				det->ToggleDetector(g_player_hud->attached_item(0)!=NULL);
+				if (det)
+					det->ToggleDetector(g_player_hud->attached_item(0)!=NULL);
 				return;
 			}
 		}

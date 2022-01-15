@@ -2494,6 +2494,9 @@
     <Filter Include="UI\Common\PDA\Encylopedia">
       <UniqueIdentifier>{73dc453e-a9d1-4200-83b7-3564dbf9fc80}</UniqueIdentifier>
     </Filter>
+    <Filter Include="UI\Common\PDA\PDA Spot">
+      <UniqueIdentifier>{08911c1c-863f-4ed8-815c-f5ad41b3dfe6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mt_config.h">
@@ -5958,18 +5961,6 @@
     <ClInclude Include="CustomOutfit.h">
       <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
     </ClInclude>
-    <ClInclude Include="ExoOutfit.h">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClInclude>
-    <ClInclude Include="MilitaryOutfit.h">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClInclude>
-    <ClInclude Include="ScientificOutfit.h">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClInclude>
-    <ClInclude Include="StalkerOutfit.h">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClInclude>
     <ClInclude Include="InfoDocument.h">
       <Filter>Core\Client\Objects\items &amp; weapons\Documents</Filter>
     </ClInclude>
@@ -7384,6 +7375,12 @@
       <Filter>Core\Client\Objects\zones\Ameba</Filter>
     </ClInclude>
     <ClInclude Include="HolderEntityObject.h" />
+    <ClInclude Include="ActorBackpack.h">
+      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\UIPdaSpot.h">
+      <Filter>UI\Common\PDA\PDA Spot</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage_manager.cpp">
@@ -9201,6 +9198,9 @@
     <ClCompile Include="map_manager.cpp">
       <Filter>Core\Client\Objects\tasks_info_dialogs\map</Filter>
     </ClCompile>
+    <ClCompile Include="map_manager_script.cpp">
+      <Filter>Core\Client\Objects\tasks_info_dialogs\map</Filter>
+    </ClCompile>
     <ClCompile Include="Inventory.cpp">
       <Filter>Core\Client\Objects\inventory</Filter>
     </ClCompile>
@@ -9529,18 +9529,6 @@
       <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
     </ClCompile>
     <ClCompile Include="CustomOutfit.cpp">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClCompile>
-    <ClCompile Include="ExoOutfit.cpp">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClCompile>
-    <ClCompile Include="MilitaryOutfit.cpp">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClCompile>
-    <ClCompile Include="ScientificOutfit.cpp">
-      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
-    </ClCompile>
-    <ClCompile Include="StalkerOutfit.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
     </ClCompile>
     <ClCompile Include="InfoDocument.cpp">
@@ -11035,6 +11023,50 @@
       <Filter>Core\Client\Objects\zones\Ameba</Filter>
     </ClCompile>
     <ClCompile Include="HolderEntityObject.cpp" />
+    <ClCompile Include="CustomOutfit_script.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
+    </ClCompile>
+    <ClCompile Include="medkit_script.cpp" />
+    <ClCompile Include="WeaponAmmo_script.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Custom Weapon\Ammo</Filter>
+    </ClCompile>
+    <ClCompile Include="eatable_item_script.cpp">
+      <Filter>Core\Client\Objects\inventory\EatableItem</Filter>
+    </ClCompile>
+    <ClCompile Include="antirad_script.cpp" />
+    <ClCompile Include="InventoryBox_script.cpp">
+      <Filter>Core\Client\Objects\inventory_box</Filter>
+    </ClCompile>
+    <ClCompile Include="InventoryOwner_script.cpp">
+      <Filter>Core\Client\Objects\inventory\InventoryOwner</Filter>
+    </ClCompile>
+    <ClCompile Include="ActorCondition_script.cpp">
+      <Filter>Core\Client\Objects\actor\base</Filter>
+    </ClCompile>
+    <ClCompile Include="CustomZone_script.cpp">
+      <Filter>Core\Client\Objects\zones\CustomZone</Filter>
+    </ClCompile>
+    <ClCompile Include="HudItem_script.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
+    </ClCompile>
+    <ClCompile Include="FoodItem_script.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\Food &amp; Drugs</Filter>
+    </ClCompile>
+    <ClCompile Include="PhysicsShellHolder_script.cpp">
+      <Filter>Core\Client\Objects\physics\PhysicsShellHolder</Filter>
+    </ClCompile>
+    <ClCompile Include="BottleItem_script.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\Food &amp; Drugs</Filter>
+    </ClCompile>
+    <ClCompile Include="inventory_item_script.cpp">
+      <Filter>Core\Client\Objects\inventory\InventoryItem</Filter>
+    </ClCompile>
+    <ClCompile Include="ActorBackpack.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\Outfit</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\UIPdaSpot.cpp">
+      <Filter>UI\Common\PDA\PDA Spot</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="ai\monsters\chimera\chimera_attack_state.h">

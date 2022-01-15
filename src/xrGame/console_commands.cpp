@@ -93,9 +93,6 @@ extern	float	g_fTimeFactor;
 extern	BOOL	b_toggle_weapon_aim;
 //extern  BOOL	g_old_style_ui_hud;
 
-extern u32 UIStyleID;
-extern xr_vector<xr_token> UIStyleToken;
-
 extern float	g_smart_cover_factor;
 extern int		g_upgrades_log;
 extern float	g_smart_cover_animation_speed_factor;
@@ -105,6 +102,7 @@ float			g_aim_predict_time = 0.40f;
 int				g_keypress_on_start = 1;
 
 extern BOOL		g_ai_die_in_anomaly; //Alundaio
+extern BOOL		g_invert_zoom; //Alundaio
 
 ENGINE_API extern float	g_console_sensitive;
 
@@ -562,11 +560,6 @@ public:
 			return;
 		}
 #endif
-		if (!IsGameTypeSingle())
-		{
-			Msg("for single-mode only");
-			return;
-		}
 		if (!g_actor || !Actor()->g_Alive())
 		{
 			Msg("cannot make saved game because actor is dead :(");
@@ -1933,6 +1926,8 @@ void CCC_RegisterCommands()
 	//#ifdef DEBUG
 	CMD4(CCC_Float, "hud_fov", &psHUD_FOV, 0.1f, 1.0f);
 	CMD4(CCC_Float, "fov", &g_fov, 5.0f, 180.0f);
+	CMD4(CCC_Float, "scope_fov", &g_scope_fov, 5.0f, 180.0f);
+	CMD4(CCC_Integer, "objects_per_client_update", &g_objects_per_client_update, 1, 65535)
 	//#endif // DEBUG
 
 	// Demo
@@ -1942,7 +1937,7 @@ void CCC_RegisterCommands()
 	CMD1(CCC_DemoRecordSetPos, "demo_set_cam_position");
 	//#endif // #ifndef MASTER_GOLD
 
-#ifndef MASTER_GOLD
+//#ifndef MASTER_GOLD
 	// ai
 	CMD3(CCC_Mask, "mt_ai_vision", &g_mt_config, mtAiVision);
 	CMD3(CCC_Mask, "mt_level_path", &g_mt_config, mtLevelPath);
@@ -1954,19 +1949,19 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "mt_level_sounds", &g_mt_config, mtLevelSounds);
 	CMD3(CCC_Mask, "mt_alife", &g_mt_config, mtALife);
 	CMD3(CCC_Mask, "mt_map", &g_mt_config, mtMap);
-#endif // MASTER_GOLD
+//#endif // MASTER_GOLD
 
 #ifndef MASTER_GOLD
 	CMD3(CCC_Mask, "ai_obstacles_avoiding", &psAI_Flags, aiObstaclesAvoiding);
 	CMD3(CCC_Mask, "ai_obstacles_avoiding_static", &psAI_Flags, aiObstaclesAvoidingStatic);
 	CMD3(CCC_Mask, "ai_use_smart_covers", &psAI_Flags, aiUseSmartCovers);
 	CMD3(CCC_Mask, "ai_use_smart_covers_animation_slots", &psAI_Flags, (u32)aiUseSmartCoversAnimationSlot);
-	CMD4(CCC_Float, "ai_smart_factor", &g_smart_cover_factor, 0.f, 1000000.f);
 	CMD3(CCC_Mask, "ai_dbg_lua", &psAI_Flags, aiLua);
 #endif // MASTER_GOLD
+	CMD4(CCC_Float, "ai_smart_factor", &g_smart_cover_factor, 0.f, 1000000.f);
 
-#ifdef DEBUG
 	CMD4(CCC_Integer, "lua_gcstep", &psLUA_GCSTEP, 1, 1000);
+#ifdef DEBUG
 	CMD3(CCC_Mask, "ai_debug", &psAI_Flags, aiDebug);
 	CMD3(CCC_Mask, "ai_dbg_brain", &psAI_Flags, aiBrain);
 	CMD3(CCC_Mask, "ai_dbg_motion", &psAI_Flags, aiMotion);
@@ -2077,7 +2072,7 @@ void CCC_RegisterCommands()
 	/* AVO: changing restriction to -dbg key instead of DEBUG */
 	//#ifndef MASTER_GOLD
 #ifdef MASTER_GOLD
-	if (0 != strstr(Core.Params, "-dbg"))
+	if (Core.ParamFlags.test(Core.dbg))
 	{
 		CMD1(CCC_JumpToLevel, "jump_to_level");
 		CMD3(CCC_Mask, "g_god", &psActorFlags, AF_GODMODE);
@@ -2262,9 +2257,9 @@ void CCC_RegisterCommands()
 
 	CMD3(CCC_Mask, "ai_use_torch_dynamic_lights", &g_uCommonFlags, flAiUseTorchDynamicLights);
 
-#ifndef MASTER_GOLD
+//#ifndef MASTER_GOLD
 	CMD4(CCC_Vector3, "psp_cam_offset", &CCameraLook2::m_cam_offset, Fvector().set(-1000, -1000, -1000), Fvector().set(1000, 1000, 1000));
-#endif // MASTER_GOLD
+//#endif // MASTER_GOLD
 
 	CMD1(CCC_GSCheckForUpdates, "check_for_updates");
 #ifdef DEBUG
@@ -2293,7 +2288,6 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Float, "con_sensitive", &g_console_sensitive, 0.01f, 1.0f);
 	CMD4(CCC_Integer, "wpn_aim_toggle", &b_toggle_weapon_aim, 0, 1);
 	//	CMD4(CCC_Integer,	"hud_old_style",			&g_old_style_ui_hud, 0, 1);
-	CMD3(CCC_Token, "ui_style", &UIStyleID, UIStyleToken.data());
 
 #ifdef DEBUG
 	CMD4(CCC_Float, "ai_smart_cover_animation_speed_factor", &g_smart_cover_animation_speed_factor, .1f, 10.f);
@@ -2305,6 +2299,7 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "ai_use_old_vision", &g_ai_use_old_vision, 0, 1);
 
 	CMD4(CCC_Integer, "ai_die_in_anomaly", &g_ai_die_in_anomaly, 0, 1); //Alundaio
+	CMD4(CCC_Integer, "g_invert_zoom", &g_invert_zoom, 0, 1); //Alundaio
 
 	CMD4(CCC_Float, "ai_aim_predict_time", &g_aim_predict_time, 0.f, 10.f);
 

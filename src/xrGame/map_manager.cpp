@@ -41,6 +41,7 @@ void SLocationKey::save(IWriter &stream)
 	stream.w		(&object_id,sizeof(object_id));
 
 	stream.w_stringZ(spot_type);
+	stream.w_u8(location->IsUserDefined() ? 1 : 0);
 	stream.w_u8		(0);
 	location->save	(stream);
 }
@@ -50,15 +51,26 @@ void SLocationKey::load(IReader &stream)
 	stream.r		(&object_id,sizeof(object_id));
 
 	stream.r_stringZ(spot_type);
+	u8	bUserDefined = stream.r_u8();
 	stream.r_u8		();
 
-	location  = xr_new<CMapLocation>(*spot_type, object_id);
+	if (bUserDefined)
+	{
+		Level().Server->PerformIDgen(object_id);
+		location = xr_new<CMapLocation>(*spot_type, object_id, true);
+	}
+	else
+	{
+		location = xr_new<CMapLocation>(*spot_type, object_id);
+	}
 
 	location->load	(stream);
 }
 
 void SLocationKey::destroy()
 {
+	if (location && location->IsUserDefined())
+		Level().Server->FreeID(object_id,0);
 	delete_data(location);
 }
 
@@ -104,9 +116,19 @@ CMapLocation* CMapManager::AddMapLocation(const shared_str& spot_type, u16 id)
 	CMapLocation* l = xr_new<CMapLocation>(spot_type.c_str(), id);
 	Locations().push_back( SLocationKey(spot_type, id) );
 	Locations().back().location = l;
-	if (IsGameTypeSingle()&& g_actor)
+	if (g_actor)
 		Actor()->callback(GameObject::eMapLocationAdded)(spot_type.c_str(), id);
 
+	return l;
+}
+
+CMapLocation* CMapManager::AddUserLocation(const shared_str& spot_type, const shared_str& level_name, Fvector position)
+{
+	u16 _id = Level().Server->PerformIDgen(0xffff);
+	CMapLocation* l = xr_new<CMapLocation>(spot_type.c_str(), _id, true);
+	l->InitUserSpot(level_name, position);
+	Locations().push_back(SLocationKey(spot_type, _id));
+	Locations().back().location = l;
 	return l;
 }
 
@@ -141,9 +163,7 @@ void CMapManager::RemoveMapLocation(const shared_str& spot_type, u16 id)
 	Locations_it it = std::find_if(Locations().begin(),Locations().end(),key);
 	if( it!=Locations().end() )
 	{
-		if(IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase((*it).location);
-
+		Level().GameTaskManager().MapLocationRelcase((*it).location);
 		Destroy					((*it).location);
 		Locations().erase		(it);
 	}
@@ -155,8 +175,7 @@ void CMapManager::RemoveMapLocationByObjectID(u16 id) //call on destroy object
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
 	while( it!= Locations().end() )
 	{
-		if(IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase((*it).location);
+		Level().GameTaskManager().MapLocationRelcase((*it).location);
 
 		Destroy					((*it).location);
 		Locations().erase		(it);
@@ -172,8 +191,7 @@ void CMapManager::RemoveMapLocation(CMapLocation* ml)
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
 	if( it!=Locations().end() )
 	{
-		if(IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase((*it).location);
+		Level().GameTaskManager().MapLocationRelcase((*it).location);
 
 		Destroy					((*it).location);
 		Locations().erase		(it);
@@ -242,8 +260,7 @@ void CMapManager::Update()
 
 	while( (!Locations().empty())&&(!Locations().back().actual) )
 	{
-		if(IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase(Locations().back().location);
+		Level().GameTaskManager().MapLocationRelcase(Locations().back().location);
 
 		Destroy					(Locations().back().location);
 		Locations().pop_back();
@@ -292,3 +309,30 @@ void CMapManager::Dump						()
 	Msg("end of map_locations dump");
 }
 #endif
+
+using namespace luabind;
+void CMapManager::MapLocationsForEach(LPCSTR spot_type, u16 id, const luabind::functor<bool> &functor)
+{
+	xr_vector<CMapLocation*> res;
+	Level().MapManager().GetMapLocations(spot_type, id, res);
+	xr_vector<CMapLocation*>::iterator it = res.begin();
+	xr_vector<CMapLocation*>::iterator it_e = res.end();
+	for (; it != it_e; ++it)
+	{
+		CMapLocation* ml = *it;
+		if (functor(ml) == true)
+			return;
+	}
+}
+
+void CMapManager::AllLocationsForEach(const luabind::functor<bool> &functor)
+{
+	Locations_it it = Locations().begin();
+	Locations_it it_e = Locations().end();
+
+	for (; it != it_e; ++it)
+	{
+		if (functor((*it).location) == true)
+			return;
+	}
+}

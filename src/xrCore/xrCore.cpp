@@ -35,17 +35,48 @@ void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, 
     {
 #ifdef XRCORE_STATIC
         _clear87();
+#ifdef _M_IX86
         _control87(_PC_53, MCW_PC);
+#endif
         _control87(_RC_CHOP, MCW_RC);
         _control87(_RC_NEAR, MCW_RC);
         _control87(_MCW_EM, MCW_EM);
 #endif
-        // Init COM so we can use CoCreateInstance
-        // HRESULT co_res =
         Params = xr_strdup(GetCommandLine());
         xr_strlwr(Params);
+
+
+		if (strstr(Params, "-dbg"))
+			ParamFlags.set(ParamFlag::dbg, TRUE);
+
+		if (strstr(Params, "-dbgdev"))
+			ParamFlags.set(ParamFlag::dbgdev, TRUE);
+
+		if (strstr(Params, "-dbgact"))
+			ParamFlags.set(ParamFlag::dbgact, TRUE);
+
+		if (strstr(Params, "-dbganim"))
+			ParamFlags.set(ParamFlag::dbganim, TRUE);
+
+		if (strstr(Params, "-nofpslock"))
+			ParamFlags.set(ParamFlag::nofpslock, TRUE);
+
+		if (strstr(Params, "-fpslock60"))
+			ParamFlags.set(ParamFlag::fpslock60, TRUE);
+
+		if (strstr(Params, "-fpslock120"))
+			ParamFlags.set(ParamFlag::fpslock120, TRUE);
+
+		if (strstr(Params, "-fpslock144"))
+			ParamFlags.set(ParamFlag::fpslock144, TRUE);
+
+		if (strstr(Params, "-fpslock240"))
+			ParamFlags.set(ParamFlag::fpslock240, TRUE);
+
+		// Init COM so we can use CoCreateInstance
+        // HRESULT co_res =
         //if (!strstr(Params, "-editor"))
-        //    CoInitializeEx(NULL, COINIT_MULTITHREADED);
+        //   CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
         string_path fn, dr, di;
 
@@ -168,7 +199,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD ul_reason_for_call, LPVOID lpvRese
     case DLL_PROCESS_ATTACH:
     {
         _clear87();
+#ifdef _M_IX86
         _control87(_PC_53, MCW_PC);
+#endif
         _control87(_RC_CHOP, MCW_RC);
         _control87(_RC_NEAR, MCW_RC);
         _control87(_MCW_EM, MCW_EM);
@@ -176,8 +209,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD ul_reason_for_call, LPVOID lpvRese
         //. LogFile.reserve (256);
     break;
     case DLL_THREAD_ATTACH:
-       // if (!strstr(GetCommandLine(), "-editor"))
-       //     CoInitializeEx(NULL, COINIT_MULTITHREADED);
+      // if (!strstr(GetCommandLine(), "-editor"))
+      //     CoInitializeEx(NULL, COINIT_MULTITHREADED);
         timeBeginPeriod(1);
         break;
     case DLL_THREAD_DETACH:

@@ -49,54 +49,6 @@
 //	static	void	ode_free	(void *ptr, size_t size)					{ return xr_free(ptr);				}
 //#endif // DEBUG_MEMORY_MANAGER
 
-u32 UIStyleID = 0;
-xr_vector<xr_token> UIStyleToken;
-void FillUIStyleToken()
-{
-	UIStyleToken.emplace_back("ui_style_default", 0);
-	string_path path;
-	strconcat(sizeof(path), path, UI_PATH, "\\styles\\");
-	FS.update_path(path, _game_config_, path);
-	auto styles = FS.file_list_open(path, FS_ListFolders | FS_RootOnly);
-	if (styles != nullptr)
-	{
-		int i = 1; // It's 1, because 0 is default style
-		for (const auto& style : *styles)
-		{
-			const auto pos = strchr(style, '\\');
-			*pos = '\0'; // we don't need that backslash in the end
-			UIStyleToken.emplace_back(xr_strdup(style), i++); // It's important to have postfix increment!
-		}
-		FS.file_list_close(styles);
-	}
-	UIStyleToken.emplace_back(nullptr, -1);
-}
-bool defaultUIStyle = true;
-void SetupUIStyle()
-{
-	if (UIStyleID == 0)
-		return;
-	pcstr selectedStyle = nullptr;
-	for (const auto& token : UIStyleToken)
-	if (token.id == UIStyleID)
-		selectedStyle = token.name;
-	string128 selectedStylePath;
-	strconcat(sizeof(selectedStylePath), selectedStylePath, UI_PATH, "\\styles\\", selectedStyle);
-	UI_PATH = xr_strdup(selectedStylePath);
-	defaultUIStyle = false;
-}
-void CleanupUIStyleToken()
-{
-	for (auto& token : UIStyleToken)
-	{
-		if (token.name && token.id != 0)
-			xr_free(token.name);
-	}
-	UIStyleToken.clear();
-	if (!defaultUIStyle)
-		xr_free(UI_PATH);
-}
-
 CGamePersistent::CGamePersistent(void)
 {
     m_bPickableDOF = false;
@@ -193,7 +145,6 @@ extern void init_game_globals();
 
 void CGamePersistent::OnAppStart()
 {
-	SetupUIStyle();
     // load game materials
     GMLib.Load();
     init_game_globals();
@@ -243,73 +194,12 @@ void CGamePersistent::OnGameStart()
     UpdateGameType();
 }
 
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort)
-{
-    switch (gt)
-    {
-    case eGameIDSingle:
-        return "single";
-        break;
-    case eGameIDDeathmatch:
-        return (bShort) ? "dm" : "deathmatch";
-        break;
-    case eGameIDTeamDeathmatch:
-        return (bShort) ? "tdm" : "teamdeathmatch";
-        break;
-    case eGameIDArtefactHunt:
-        return (bShort) ? "ah" : "artefacthunt";
-        break;
-    case eGameIDCaptureTheArtefact:
-        return (bShort) ? "cta" : "capturetheartefact";
-        break;
-    case eGameIDDominationZone:
-        return (bShort) ? "dz" : "dominationzone";
-        break;
-    case eGameIDTeamDominationZone:
-        return (bShort) ? "tdz" : "teamdominationzone";
-        break;
-    default:
-        return		"---";
-    }
-}
-
-EGameIDs ParseStringToGameType(LPCSTR str)
-{
-    if (!xr_strcmp(str, "single"))
-        return eGameIDSingle;
-    else
-    if (!xr_strcmp(str, "deathmatch") || !xr_strcmp(str, "dm"))
-        return eGameIDDeathmatch;
-    else
-    if (!xr_strcmp(str, "teamdeathmatch") || !xr_strcmp(str, "tdm"))
-        return eGameIDTeamDeathmatch;
-    else
-    if (!xr_strcmp(str, "artefacthunt") || !xr_strcmp(str, "ah"))
-        return eGameIDArtefactHunt;
-    else
-    if (!xr_strcmp(str, "capturetheartefact") || !xr_strcmp(str, "cta"))
-        return eGameIDCaptureTheArtefact;
-    else
-    if (!xr_strcmp(str, "dominationzone"))
-        return eGameIDDominationZone;
-    else
-    if (!xr_strcmp(str, "teamdominationzone"))
-        return eGameIDTeamDominationZone;
-    else
-        return eGameIDNoGame; //EGameIDs
-}
-
 void CGamePersistent::UpdateGameType()
 {
     __super::UpdateGameType();
 
-    m_game_params.m_e_game_type = ParseStringToGameType(m_game_params.m_game_type);
-
-
-    if (m_game_params.m_e_game_type == eGameIDSingle)
-        g_current_keygroup = _sp;
-    else
-        g_current_keygroup = _mp;
+    m_game_params.m_e_game_type = eGameIDSingle;
+	g_current_keygroup = _sp;
 }
 
 void CGamePersistent::OnGameEnd()
@@ -665,7 +555,7 @@ void CGamePersistent::OnFrame()
             }
         }
 #ifndef MASTER_GOLD
-        if (Level().CurrentViewEntity() && IsGameTypeSingle())
+        if (Level().CurrentViewEntity())
         {
             if (!g_actor || (g_actor->ID() != Level().CurrentViewEntity()->ID()))
             {
@@ -721,7 +611,7 @@ void CGamePersistent::OnFrame()
             }
         }
 #else // MASTER_GOLD
-        if (g_actor && IsGameTypeSingle())
+        if (g_actor)
         {
             CCameraBase* C = NULL;
             if(!Actor()->Holder())
@@ -899,36 +789,28 @@ void CGamePersistent::LoadTitle(bool change_tip, shared_str map_name)
     pApp->LoadStage();
     if (change_tip)
     {
-        string512				buff;
-        u8						tip_num;
-        luabind::functor<u8>	m_functor;
-        bool is_single = !xr_strcmp(m_game_params.m_game_type, "single");
-        if (is_single)
-        {
-            R_ASSERT(ai().script_engine().functor("loadscreen.get_tip_number", m_functor));
-            tip_num = m_functor(map_name.c_str());
-        }
-        else
-        {
-            R_ASSERT(ai().script_engine().functor("loadscreen.get_mp_tip_number", m_functor));
-            tip_num = m_functor(map_name.c_str());
-        }
-        //		tip_num = 83;
-        xr_sprintf(buff, "%s%d:", CStringTable().translate("ls_tip_number").c_str(), tip_num);
-        shared_str				tmp = buff;
+		LPCSTR tip_header;
+		LPCSTR tip_title;
+		LPCSTR tip_text;
+		
+        luabind::functor<LPCSTR> m_functor;
 
-        if (is_single)
-            xr_sprintf(buff, "ls_tip_%d", tip_num);
-        else
-            xr_sprintf(buff, "ls_mp_tip_%d", tip_num);
+		R_ASSERT(ai().script_engine().functor("loadscreen.get_tip_header", m_functor));
+		tip_header = m_functor(map_name.c_str());
 
-        pApp->LoadTitleInt(CStringTable().translate("ls_header").c_str(), tmp.c_str(), CStringTable().translate(buff).c_str());
+		R_ASSERT(ai().script_engine().functor("loadscreen.get_tip_title", m_functor));
+		tip_title = m_functor(map_name.c_str());
+
+		R_ASSERT(ai().script_engine().functor("loadscreen.get_tip_text", m_functor));
+		tip_text = m_functor(map_name.c_str());
+
+		pApp->LoadTitleInt(tip_header, tip_title, tip_text);
     }
 }
 
 bool CGamePersistent::CanBePaused()
 {
-    return IsGameTypeSingle() || (g_pGameLevel && Level().IsDemoPlay());
+    return true;
 }
 void CGamePersistent::SetPickableEffectorDOF(bool bSet)
 {

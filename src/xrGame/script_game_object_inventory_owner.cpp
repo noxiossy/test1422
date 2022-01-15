@@ -1,6 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 // script_game_object_inventory_owner.сpp :	функции для inventory owner
 //////////////////////////////////////////////////////////////////////////
+
 #include "pch_script.h"
 #include "script_game_object.h"
 #include "script_game_object_impl.h"
@@ -59,6 +60,7 @@
 #include "./xrServerEntities/inventory_space.h"
 #include "ai_space.h"
 #include "script_engine.h"
+#include "ActorBackpack.h"
 
 using namespace luabind;
 //-Alundaio
@@ -215,7 +217,7 @@ bool CScriptGameObject::IsInvUpgradeEnabled()
     return pInventoryOwner->IsInvUpgradeEnabled();
 }
 
-void CScriptGameObject::ForEachInventoryItems(const luabind::functor<void> &functor)
+void CScriptGameObject::ForEachInventoryItems(const luabind::functor<bool> &functor)
 {
     CInventoryOwner* owner = smart_cast<CInventoryOwner*>(&object());
     if (!owner)
@@ -234,7 +236,8 @@ void CScriptGameObject::ForEachInventoryItems(const luabind::functor<void> &func
         CGameObject* inv_go = smart_cast<CGameObject*>(*it);
         if (inv_go)
         {
-            functor(inv_go->lua_game_object(), this);
+           if (functor(inv_go->lua_game_object(), this) == true)
+			   return;
         }
     }
 }
@@ -276,7 +279,7 @@ void CScriptGameObject::IterateInventoryBox(luabind::functor<bool> functor, luab
     }
 }
 
-void CScriptGameObject::MarkItemDropped(CScriptGameObject *item)
+void CScriptGameObject::MarkItemDropped(CScriptGameObject *item,bool flag)
 {
     CInventoryOwner			*inventory_owner = smart_cast<CInventoryOwner*>(&object());
     if (!inventory_owner)
@@ -292,7 +295,7 @@ void CScriptGameObject::MarkItemDropped(CScriptGameObject *item)
         return;
     }
 
-    inventory_item->SetDropManual(TRUE);
+    inventory_item->SetDropManual(flag?TRUE:FALSE);
 }
 
 bool CScriptGameObject::MarkedDropped(CScriptGameObject *item)
@@ -787,7 +790,6 @@ void  CScriptGameObject::SwitchToUpgrade()
 void  CScriptGameObject::SwitchToTalk()
 {
     R_ASSERT("switch_to_talk called ;)");
-	//GetMessageTarget()->SendMessage(this, TRADE_WND_CLOSED);
 }
 
 void CScriptGameObject::AllowBreakTalkDialog(bool b)
@@ -1156,8 +1158,9 @@ CScriptGameObject *CScriptGameObject::active_detector() const
     if (result)
     {
         CCustomDetector *detector = smart_cast<CCustomDetector*>(result);
-        VERIFY(detector);
-        return			(detector->IsWorking() ? result->object().lua_game_object() : 0);
+		if (!detector)
+			return (0);
+        return (detector->IsWorking() ? result->object().lua_game_object() : 0);
     }
     return (0);
 }
@@ -1171,7 +1174,7 @@ CScriptGameObject *CScriptGameObject::item_in_slot(u32 slot_id) const
         return		(0);
     }
 
-    CInventoryItem	*result = inventory_owner->inventory().ItemFromSlot((u16) slot_id);
+    CInventoryItem	*result = slot_id != NO_ACTIVE_SLOT ? inventory_owner->inventory().ItemFromSlot((u16) slot_id) : (0);
     return			(result ? result->object().lua_game_object() : 0);
 }
 
@@ -1583,53 +1586,65 @@ bool CScriptGameObject::death_sound_enabled() const
 
 void CScriptGameObject::register_door()
 {
-    VERIFY2(!m_door, make_string("object %s has been registered as a door already", m_game_object->cName().c_str()));
-    m_door = ai().doors().register_door(*smart_cast<CPhysicObject*>(m_game_object));
+    //VERIFY2(!m_door, make_string("object %s has been registered as a door already", m_game_object->cName().c_str()));
+	if (!m_door)
+		m_door = ai().doors().register_door(*smart_cast<CPhysicObject*>(m_game_object));
     //	Msg									( "registering door 0x%-08x", m_door );
 }
 
 void CScriptGameObject::unregister_door()
 {
-    VERIFY2(m_door, make_string("object %s is not a door", m_game_object->cName().c_str()));
+    //VERIFY2(m_door, make_string("object %s is not a door", m_game_object->cName().c_str()));
     //	Msg									( "UNregistering door 0x%-08x", m_door );
-    ai().doors().unregister_door(m_door);
-    m_door = 0;
+	if (m_door)
+	{
+		ai().doors().unregister_door(m_door);
+		m_door = 0;
+	}
 }
 
 void CScriptGameObject::on_door_is_open()
 {
-    VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
-    ai().doors().on_door_is_open(m_door);
+   // VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
+	if (m_door)
+		ai().doors().on_door_is_open(m_door);
 }
 
 void CScriptGameObject::on_door_is_closed()
 {
-    VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
-    ai().doors().on_door_is_closed(m_door);
+	//VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
+	if (m_door)
+		ai().doors().on_door_is_closed(m_door);
 }
 
 bool CScriptGameObject::is_door_locked_for_npc() const
 {
-    VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
-    return								ai().doors().is_door_locked(m_door);
+    //VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
+	if (!m_door)
+		return false;
+    return ai().doors().is_door_locked(m_door);
 }
 
 void CScriptGameObject::lock_door_for_npc()
 {
-    VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
-    ai().doors().lock_door(m_door);
+	//VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
+	if (m_door)
+		ai().doors().lock_door(m_door);
 }
 
 void CScriptGameObject::unlock_door_for_npc()
 {
-    VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
-    ai().doors().unlock_door(m_door);
+    //VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
+	if (m_door)
+		ai().doors().unlock_door(m_door);
 }
 
 bool CScriptGameObject::is_door_blocked_by_npc() const
 {
-    VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
-    return								ai().doors().is_door_blocked(m_door);
+    //VERIFY2(m_door, make_string("object %s hasn't been registered as a door already", m_game_object->cName().c_str()));
+	if (!m_door)
+		return false;
+    return ai().doors().is_door_blocked(m_door);
 }
 
 //Alundaio: Methods for exporting the ability to detach/attach addons for magazined weapons
@@ -1669,6 +1684,29 @@ void CScriptGameObject::Weapon_AddonDetach(LPCSTR item_section)
 	}
 }
 
+void CScriptGameObject::Weapon_SetCurrentScope(u8 type)
+{
+	CWeaponMagazined* weapon = smart_cast<CWeaponMagazined*>(&object());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CWeaponMagazined : cannot access class member Weapon_SetCurrentScope!");
+		return;
+	}
+
+	weapon->m_cur_scope = type;
+}
+
+u8 CScriptGameObject::Weapon_GetCurrentScope()
+{
+	CWeaponMagazined* weapon = smart_cast<CWeaponMagazined*>(&object());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CWeaponMagazined : cannot access class member Weapon_GetCurrentScope!");
+		return 255;
+	}
+	return weapon->m_cur_scope;
+}
+
 bool CScriptGameObject::InstallUpgrade(LPCSTR upgrade)
 {
 	CInventoryItem* item = smart_cast<CInventoryItem*>(&object());
@@ -1699,7 +1737,7 @@ bool CScriptGameObject::HasUpgrade(LPCSTR upgrade)
 	return item->has_upgrade(upgrade);
 }
 
-void CScriptGameObject::IterateInstalledUpgrades(luabind::functor<void> functor)
+void CScriptGameObject::IterateInstalledUpgrades(const luabind::functor<bool> &functor)
 {
 	CInventoryItem* Item = smart_cast<CInventoryItem*>(&object());
 	if (!Item)
@@ -1710,7 +1748,8 @@ void CScriptGameObject::IterateInstalledUpgrades(luabind::functor<void> functor)
 	CInventoryItem::Upgrades_type::const_iterator ie = m_upgrades.end();
 	for (; ib != ie; ++ib)
 	{
-		functor((*ib).c_str(), object().lua_game_object());
+		if (functor((*ib).c_str(), object().lua_game_object()) == true)
+			return;
 	}
 }
 
@@ -1805,38 +1844,58 @@ void CScriptGameObject::SetActorMaxWalkWeight(float max_walk_weight)
 float CScriptGameObject::GetAdditionalMaxWeight() const
 {
 	CCustomOutfit* outfit = smart_cast<CCustomOutfit*>(&object());
-	if(!outfit) {
+	CBackpack* pBackpack = smart_cast<CBackpack*>(&object());
+	if(!outfit && !pBackpack) {
 		ai().script_engine().script_log			(ScriptStorage::eLuaMessageTypeError,"CCustomOutfit : cannot access class member GetAdditionalMaxWeight!");
-		return			(false);
+		return (false);
 	}
-	return				(outfit->m_additional_weight2);
+	
+	if (outfit)
+		return (outfit->m_additional_weight2);
+	
+	return (pBackpack->m_additional_weight2);
 }
 float CScriptGameObject::GetAdditionalMaxWalkWeight() const
 {
 	CCustomOutfit* outfit = smart_cast<CCustomOutfit*>(&object());
-	if(!outfit) {
+	CBackpack* pBackpack = smart_cast<CBackpack*>(&object());
+	if(!outfit && !pBackpack) {
 		ai().script_engine().script_log			(ScriptStorage::eLuaMessageTypeError,"CCustomOutfit : cannot access class member GetAdditionalMaxWalkWeight!");
 		return			(false);
 	}
-	return				(outfit->m_additional_weight);
+	if (outfit)
+		return (outfit->m_additional_weight);
+
+	return (pBackpack->m_additional_weight);
 }
 void CScriptGameObject::SetAdditionalMaxWeight(float add_max_weight)
 {
 	CCustomOutfit* outfit = smart_cast<CCustomOutfit*>(&object());
-	if(!outfit) {
+	CBackpack* pBackpack = smart_cast<CBackpack*>(&object());
+	if(!outfit && !pBackpack) {
 		ai().script_engine().script_log			(ScriptStorage::eLuaMessageTypeError,"CCustomOutfit : cannot access class member SetAdditionalMaxWeight!");
 		return;
 	}
-	outfit->m_additional_weight2 = add_max_weight;
+	if (outfit)
+		outfit->m_additional_weight2 = add_max_weight;
+	
+	if (pBackpack)
+		pBackpack->m_additional_weight2 = add_max_weight;
 }
 void CScriptGameObject::SetAdditionalMaxWalkWeight(float add_max_walk_weight)
 {
 	CCustomOutfit* outfit = smart_cast<CCustomOutfit*>(&object());
-	if(!outfit) {
+	CBackpack* pBackpack = smart_cast<CBackpack*>(&object());
+	if(!outfit && !pBackpack) {
 		ai().script_engine().script_log			(ScriptStorage::eLuaMessageTypeError,"CCustomOutfit : cannot access class member SetAdditionalMaxWalkWeight!");
 		return;
 	}
-	outfit->m_additional_weight = add_max_walk_weight;
+	
+	if (outfit)
+		outfit->m_additional_weight = add_max_walk_weight;
+	
+	if (pBackpack)
+		pBackpack->m_additional_weight = add_max_walk_weight;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // получить суммарный вес инвентаря

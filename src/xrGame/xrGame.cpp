@@ -25,17 +25,14 @@
 //#pragma comment(lib,"ode.lib")
 #pragma comment(lib,"xrEngine.lib")
 
-extern void FillUIStyleToken();
-extern void CleanupUIStyleToken();
-
 extern "C" {
 	DLL_API DLL_Pure*	__cdecl xrFactory_Create		(CLASS_ID clsid)
 	{
 		DLL_Pure			*object = object_factory().client_object(clsid);
-#ifdef DEBUG
+//#ifdef DEBUG
 		if (!object)
-			return			(0);
-#endif
+			return (0);
+//#endif
 		object->CLS_ID		= clsid;
 		return				(object);
 	}
@@ -53,8 +50,6 @@ BOOL APIENTRY DllMain(HANDLE hModule, u32 ul_reason_for_call, LPVOID lpReserved)
 {
 	switch (ul_reason_for_call) {
 		case DLL_PROCESS_ATTACH: {
-			// Fill ui style token
-			FillUIStyleToken();
 			// register console commands
 			CCC_RegisterCommands();
 			// keyboard binding
@@ -67,9 +62,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, u32 ul_reason_for_call, LPVOID lpReserved)
 			break;
 		}
 
-		case DLL_PROCESS_DETACH:
-		{
-			CleanupUIStyleToken();
+		case DLL_PROCESS_DETACH: {
 			break;
 		}
 	}

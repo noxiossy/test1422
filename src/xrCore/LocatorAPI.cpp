@@ -834,15 +834,14 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
         FS_Path* pAppdataPath = FS.get_path("$app_data_root$");
 
 
-        if (pLogsPath) pLogsPath->_set_root(c_newAppPathRoot);
+        if (pLogsPath) 
+			pLogsPath->_set_root(c_newAppPathRoot);
+
         if (pAppdataPath)
         {
             pAppdataPath->_set_root(c_newAppPathRoot);
             rescan_path(pAppdataPath->m_Path, pAppdataPath->m_Flags.is(FS_Path::flRecurse));
         }
-
-        int x = 0;
-        x = x;
     }
 
     rec_files.clear();
@@ -1024,10 +1023,18 @@ int CLocatorAPI::file_list(FS_FileSet& dest, LPCSTR path, u32 flags, LPCSTR mask
                 if (!bOK) continue;
             }
             FS_File file;
-            if (flags&FS_ClampExt)
-                file.name = EFS.ChangeFileExt(entry_begin, "");
-            else
-                file.name = entry_begin;
+			if (flags&FS_FullName) //Alundaio: Ability to get a file list with full path names
+			{
+				string_path full_name;
+				strconcat(sizeof(full_name), full_name, N, entry_begin); 
+				file.name = full_name;
+			}
+			else{
+				if (flags&FS_ClampExt)
+					file.name = EFS.ChangeFileExt(entry_begin, "");
+				else
+					file.name = entry_begin;
+			}
             u32 fl = (entry.vfs != 0xffffffff ? FS_File::flVFS : 0);
             file.size = entry.size_real;
             file.time_write = entry.modif;

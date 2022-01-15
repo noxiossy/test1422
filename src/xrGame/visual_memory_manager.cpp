@@ -621,6 +621,25 @@ void CVisualMemoryManager::remove_links	(CObject *object)
 	}
 }
 
+struct CRemoveVisibleObjectPredicate {
+	const MemorySpace::CVisibleObject *m_object;
+
+	CRemoveVisibleObjectPredicate(const MemorySpace::CVisibleObject *object) : m_object(object)
+	{
+	}
+	bool operator() (const MemorySpace::CVisibleObject &object) const
+	{
+		return (m_object == &object);
+	}
+};
+
+void CVisualMemoryManager::remove(const MemorySpace::CVisibleObject *visible_object)
+{
+	VISIBLES::iterator I = std::find_if(m_objects->begin(), m_objects->end(), CRemoveVisibleObjectPredicate(visible_object));
+	if (I != m_objects->end())
+		m_objects->erase(I);
+}
+
 CVisibleObject *CVisualMemoryManager::visible_object	(const CGameObject *game_object)
 {
 	VISIBLES::iterator			I = std::find_if(m_objects->begin(),m_objects->end(),CVisibleObjectPredicateEx(game_object));
@@ -725,24 +744,31 @@ void CVisualMemoryManager::update				(float time_delta)
 	}
 #endif
 
-	if (m_object && g_actor && m_object->is_relation_enemy(Actor())) {
-		xr_vector<CNotYetVisibleObject>::iterator	I = std::find_if(
-			m_not_yet_visible_objects.begin(),
-			m_not_yet_visible_objects.end(),
-			CNotYetVisibleObjectPredicate(Actor())
-		);
-		if (I != m_not_yet_visible_objects.end()) {
-			SetActorVisibility				(
-				m_object->ID(),
-				clampr(
-					(*I).m_value/visibility_threshold(),
+	if (m_object && g_actor) 
+	{
+		if (m_object->is_relation_enemy(Actor()))
+		{
+			xr_vector<CNotYetVisibleObject>::iterator	I = std::find_if(
+				m_not_yet_visible_objects.begin(),
+				m_not_yet_visible_objects.end(),
+				CNotYetVisibleObjectPredicate(Actor())
+				);
+			if (I != m_not_yet_visible_objects.end()) 
+			{
+				SetActorVisibility(
+					m_object->ID(),
+					clampr(
+					(*I).m_value / visibility_threshold(),
 					0.f,
 					1.f
-				)
-			);
+					)
+					);
+			}
+			else
+				SetActorVisibility(m_object->ID(), 0.f);
 		}
 		else
-			SetActorVisibility				(m_object->ID(),0.f);
+			SetActorVisibility(m_object->ID(), 0.f);
 	}
 
 	STOP_PROFILE
@@ -805,13 +831,13 @@ void CVisualMemoryManager::save	(NET_Packet &packet) const
 		packet.w_float			((*I).m_self_params.m_orientation.roll);
 #endif // USE_ORIENTATION
 #ifdef USE_LEVEL_TIME
-		packet.w_u32			((Device.dwTimeGlobal >= (*I).m_level_time) ? (Device.dwTimeGlobal - (*I).m_level_time) : 0);
+		packet.w_u32			((Device.dwTimeGlobal > (*I).m_level_time) ? (Device.dwTimeGlobal - (*I).m_level_time) : 0);
 #endif // USE_LAST_LEVEL_TIME
 #ifdef USE_LEVEL_TIME
-		packet.w_u32			((Device.dwTimeGlobal >= (*I).m_level_time) ? (Device.dwTimeGlobal - (*I).m_last_level_time) : 0);
+		packet.w_u32			((Device.dwTimeGlobal > (*I).m_last_level_time) ? (Device.dwTimeGlobal - (*I).m_last_level_time) : 0);
 #endif // USE_LAST_LEVEL_TIME
 #ifdef USE_FIRST_LEVEL_TIME
-		packet.w_u32			((Device.dwTimeGlobal >= (*I).m_level_time) ? (Device.dwTimeGlobal - (*I).m_first_level_time) : 0);
+		packet.w_u32			((Device.dwTimeGlobal > (*I).m_first_level_time) ? (Device.dwTimeGlobal - (*I).m_first_level_time) : 0);
 #endif // USE_FIRST_LEVEL_TIME
 		packet.w_u64			((*I).m_visible.flags);
 	}
@@ -855,17 +881,16 @@ void CVisualMemoryManager::load	(IReader &packet)
 		packet.r_float				(object.m_self_params.m_orientation.roll);
 #endif
 #ifdef USE_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= object.m_level_time);
 		object.m_level_time			= packet.r_u32();
-		object.m_level_time			+= Device.dwTimeGlobal;
+		VERIFY(Device.dwTimeGlobal >= object.m_level_time);
+		object.m_level_time			= Device.dwTimeGlobal - object.m_level_time;
 #endif // USE_LEVEL_TIME
 #ifdef USE_LAST_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= object.m_last_level_time);
 		object.m_last_level_time	= packet.r_u32();
-		object.m_last_level_time	+= Device.dwTimeGlobal;
+		VERIFY(Device.dwTimeGlobal >= object.m_last_level_time);
+		object.m_last_level_time	= Device.dwTimeGlobal - object.m_last_level_time;
 #endif // USE_LAST_LEVEL_TIME
 #ifdef USE_FIRST_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= (*I).m_first_level_time);
 		object.m_first_level_time	= packet.r_u32();
 		object.m_first_level_time	+= Device.dwTimeGlobal;
 #endif // USE_FIRST_LEVEL_TIME

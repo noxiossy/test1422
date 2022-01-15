@@ -20,6 +20,7 @@
 #include "artefact.h"
 #include "IKLimbsController.h"
 #include "player_hud.h"
+#include "WeaponKnife.h"
 
 static const float y_spin0_factor		= 0.0f;
 static const float y_spin1_factor		= 0.4f;
@@ -269,6 +270,9 @@ void CActor::steer_Vehicle(float angle)
 	//Alundaio: Re-enable Car
 #ifdef	ENABLE_CAR
 	CCar*	car			= smart_cast<CCar*>(m_holder);
+	if (!car)
+		return;
+	
 	u16 anim_type       = car->DriverAnimationType();
 	SVehicleAnimCollection& anims=m_vehicle_anims->m_vehicles_type_collections[anim_type];
 	if(angle==0.f) 		smart_cast<IKinematicsAnimated*>	(Visual())->PlayCycle(anims.idles[0]);
@@ -382,7 +386,6 @@ void CActor::g_SetAnimation( u32 mstate_rl )
 	{
 		g_SetSprintAnimation			(mstate_rl,M_head,M_torso,M_legs);
 		moving_idx						= STorsoWpn::eSprint;
-		M_torso = ST->m_torso[4].moving[moving_idx]; //Alundaio: Fix torso animations for no weapon
 	}
 
 	if (this == Level().CurrentViewEntity())
@@ -411,9 +414,6 @@ void CActor::g_SetAnimation( u32 mstate_rl )
 	{
 		CInventoryItem* _i = inventory().ActiveItem();
 		CHudItem		*H = smart_cast<CHudItem*>(_i);
-		CWeapon			*W = smart_cast<CWeapon*>(_i);
-		CMissile		*M = smart_cast<CMissile*>(_i);
-		CArtefact		*A = smart_cast<CArtefact*>(_i);
 					
 		if (H) {
 			VERIFY(H->animation_slot() <= _total_anim_slots_);
@@ -432,12 +432,15 @@ void CActor::g_SetAnimation( u32 mstate_rl )
 			{
 				if (!m_bAnimTorsoPlayed) 
 				{
+					CWeapon			*W = smart_cast<CWeapon*>(_i);
+					CMissile		*M = smart_cast<CMissile*>(_i);
+					CArtefact		*A = smart_cast<CArtefact*>(_i);
+		
 					if (W) 
 					{
-						bool K	=inventory().GetActiveSlot() == KNIFE_SLOT;
 						bool R3 = W->IsTriStateReload();
 						
-						if(K)
+						if (smart_cast<CWeaponKnife*>(W))
 						{
 							switch (W->GetState())
 							{
@@ -490,6 +493,9 @@ void CActor::g_SetAnimation( u32 mstate_rl )
 							default				 :  M_torso	= TW->moving[moving_idx];	break;
 							}
 						}
+
+						if (!M_torso)
+							M_torso = ST->m_torso[4].moving[moving_idx]; //Alundaio: Fix torso animations for binoc
 					}
 					else if (M) 
 					{
@@ -537,7 +543,7 @@ void CActor::g_SetAnimation( u32 mstate_rl )
 				}
 			}
 		}
-		else
+		else if (!m_bAnimTorsoPlayed)
 			M_torso = ST->m_torso[4].moving[moving_idx]; //Alundaio: Fix torso animations for no weapon
 	}
 	MotionID		mid = smart_cast<IKinematicsAnimated*>(Visual())->ID_Cycle("norm_idle_0");

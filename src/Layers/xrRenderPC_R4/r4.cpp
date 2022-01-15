@@ -269,6 +269,9 @@ void					CRender::create					()
 	if (o.nvdbt)		Msg	("* NV-DBT supported and used");
 
 	// options (smap-pool-size)
+/* 	if (strstr(Core.Params,"-smap256"))		o.smapsize	= 256;
+	if (strstr(Core.Params,"-smap512"))		o.smapsize	= 512;
+	if (strstr(Core.Params,"-smap1024"))	o.smapsize	= 1024; */
 	if (strstr(Core.Params,"-smap1536"))	o.smapsize	= 1536;
 	if (strstr(Core.Params,"-smap2048"))	o.smapsize	= 2048;
 	if (strstr(Core.Params,"-smap2560"))	o.smapsize	= 2560;

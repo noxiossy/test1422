@@ -121,10 +121,14 @@ void CUIWindow::script_register(lua_State *L)
 		.def("ResetPPMode",				&CUIWindow::ResetPPMode),
 
 		class_<CDialogHolder>("CDialogHolder")
+		.def(constructor<>())
+		.def("TopInputReceiver", 		&CDialogHolder::TopInputReceiver)
+		.def("SetMainInputReceiver",	&CDialogHolder::SetMainInputReceiver)
 		.def("AddDialogToRender",		&CDialogHolder::AddDialogToRender)
 		.def("RemoveDialogToRender",	&CDialogHolder::RemoveDialogToRender),
 
 		class_<CUIDialogWnd, CUIWindow>("CUIDialogWnd")
+		.def(constructor<>())
 		.def("ShowDialog",				&CUIDialogWnd::ShowDialog)
 		.def("HideDialog",				&CUIDialogWnd::HideDialog)
 		.def("GetHolder",				&CUIDialogWnd::GetHolder),
@@ -189,8 +193,6 @@ void CUIWindow::script_register(lua_State *L)
 				value("WINDOW_KEY_RELEASED",			int(WINDOW_KEY_RELEASED)),
 				value("WINDOW_KEYBOARD_CAPTURE_LOST",	int(WINDOW_KEYBOARD_CAPTURE_LOST)),
 
-				// CUITradeWnd
-				//value("TRADE_WND_CLOSED", int(TRADE_WND_CLOSED)),
 
 	// CUIButton
 				value("BUTTON_CLICKED",					int(BUTTON_CLICKED)),
@@ -231,7 +233,9 @@ void CUIWindow::script_register(lua_State *L)
 
 				value("EDIT_TEXT_COMMIT",				int(EDIT_TEXT_COMMIT)),
 	// CMainMenu
-				value("MAIN_MENU_RELOADED",				int(MAIN_MENU_RELOADED))
+				value("MAIN_MENU_RELOADED",				int(MAIN_MENU_RELOADED)),
+	// CUITrackBar
+				value("TRACK_VALUE_CHANGED",			int(TRACK_VALUE_CHANGED))
 			]
 	];
 }

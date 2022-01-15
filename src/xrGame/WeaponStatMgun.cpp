@@ -177,7 +177,6 @@ void CWeaponStatMgun::UpdateCL()
 		OwnerActor()->Cameras().UpdateFromCamera(Camera());
 		OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
 	}
-
 }
 
 //void CWeaponStatMgun::Hit(	float P, Fvector &dir,	CObject* who, 
@@ -228,39 +227,36 @@ void CWeaponStatMgun::UpdateBarrelDir()
 
 void CWeaponStatMgun::cam_Update			(float dt, float fov)
 {
-	Fvector							P,Da;
-	Da.set							(0,0,0);
+	camera->f_fov = 90.f;// g_fov;
 
-	IKinematics* K					= smart_cast<IKinematics*>(Visual());
-	K->CalculateBones_Invalidate	();
-	K->CalculateBones				(TRUE);
-	const Fmatrix& C				= K->LL_GetTransform(m_camera_bone);
-	XFORM().transform_tiny			(P,C.c);
+	Fvector P,Da;
+	Da.set(0,0,0);
+
+	IKinematics* K = smart_cast<IKinematics*>(Visual());
+	K->CalculateBones_Invalidate();
+	K->CalculateBones(TRUE);
+	const Fmatrix& C = K->LL_GetTransform(m_camera_bone);
+	XFORM().transform_tiny(P,C.c);
 
 	Fvector d = C.k;
-	XFORM().transform_dir			(d);
+	XFORM().transform_dir(d);
 	Fvector2 des_cam_dir;
 
 	d.getHP(des_cam_dir.x, des_cam_dir.y);
 	des_cam_dir.mul(-1.0f);
 
 
-	Camera()->yaw		= angle_inertion_var(Camera()->yaw,		des_cam_dir.x,	0.5f,	7.5f,	PI_DIV_6,	Device.fTimeDelta);
-	Camera()->pitch		= angle_inertion_var(Camera()->pitch,	des_cam_dir.y,	0.5f,	7.5f,	PI_DIV_6,	Device.fTimeDelta);
-
-
-
+	Camera()->yaw = angle_inertion_var(Camera()->yaw,		des_cam_dir.x,	0.5f,	7.5f,	PI_DIV_6,	Device.fTimeDelta);
+	Camera()->pitch = angle_inertion_var(Camera()->pitch,	des_cam_dir.y,	0.5f,	7.5f,	PI_DIV_6,	Device.fTimeDelta);
 
 	if(OwnerActor()){
 		// rotate head
 		OwnerActor()->Orientation().yaw			= -Camera()->yaw;
 		OwnerActor()->Orientation().pitch		= -Camera()->pitch;
 	}
-	
 
 	Camera()->Update							(P,Da);
 	Level().Cameras().UpdateFromCamera			(Camera());
-
 }
 
 void CWeaponStatMgun::renderable_Render	()
@@ -286,7 +282,7 @@ void CWeaponStatMgun::Action				(u16 id, u32 flags)
 	}
 }
 
-void CWeaponStatMgun::SetParam			(int id, Fvector2 val)
+void CWeaponStatMgun::SetParam(int id, Fvector2 val)
 {
 	inheritedHolder::SetParam(id, val);
 	switch (id){
@@ -296,17 +292,31 @@ void CWeaponStatMgun::SetParam			(int id, Fvector2 val)
 	}
 }
 
-bool CWeaponStatMgun::attach_Actor		(CGameObject* actor)
+bool CWeaponStatMgun::attach_Actor(CGameObject* actor)
 {
-	inheritedHolder::attach_Actor	(actor);
-	SetBoneCallbacks				();
-	FireEnd							();
+	if (Owner())
+		return false;
+
+	actor->setVisible(0);
+
+	inheritedHolder::attach_Actor(actor);
+	SetBoneCallbacks();
+	FireEnd();
 	return true;
 }
 
-void CWeaponStatMgun::detach_Actor		()
+void CWeaponStatMgun::detach_Actor()
 {
-	inheritedHolder::detach_Actor	();
-	ResetBoneCallbacks				();
-	FireEnd							();
+	Owner()->setVisible(1);
+	inheritedHolder::detach_Actor();
+	ResetBoneCallbacks();
+	FireEnd();
+}
+
+Fvector CWeaponStatMgun::ExitPosition()
+{ 
+	Fvector pos; pos.set(0.f, 0.f, 0.f);
+	pos.sub(camera->Direction()).normalize();
+	pos.y = 0.f;
+	return Fvector(XFORM().c).add(pos);
 }

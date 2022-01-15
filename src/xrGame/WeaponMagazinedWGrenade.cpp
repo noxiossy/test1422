@@ -23,6 +23,8 @@ CWeaponMagazinedWGrenade::CWeaponMagazinedWGrenade(ESoundTypes eSoundType) : CWe
 {
     m_ammoType2 = 0;
     m_bGrenadeMode = false;
+	iMagazineSize2 = 0;
+	iAmmoElapsed2 = 0;
 }
 
 CWeaponMagazinedWGrenade::~CWeaponMagazinedWGrenade()
@@ -71,10 +73,7 @@ BOOL CWeaponMagazinedWGrenade::net_Spawn(CSE_Abstract* DC)
 {
     CSE_ALifeItemWeapon* const weapon = smart_cast<CSE_ALifeItemWeapon*>(DC);
     R_ASSERT(weapon);
-    if (IsGameTypeSingle())
-    {
-        inherited::net_Spawn_install_upgrades(weapon->m_upgrades);
-    }
+    inherited::net_Spawn_install_upgrades(weapon->m_upgrades);
 
     BOOL l_res = inherited::net_Spawn(DC);
 
@@ -86,36 +85,22 @@ BOOL CWeaponMagazinedWGrenade::net_Spawn(CSE_Abstract* DC)
 
     m_DefaultCartridge2.Load(m_ammoTypes2[m_ammoType2].c_str(), m_ammoType2);
 
-    if (!IsGameTypeSingle())
-    {
-        if (!m_bGrenadeMode && IsGrenadeLauncherAttached() && !getRocketCount() && iAmmoElapsed2)
-        {
-            m_magazine2.push_back(m_DefaultCartridge2);
+	xr_vector<CCartridge>* pM = NULL;
+	bool b_if_grenade_mode = (m_bGrenadeMode && iAmmoElapsed && !getRocketCount());
+	if (b_if_grenade_mode)
+		pM = &m_magazine;
 
-            shared_str grenade_name = m_DefaultCartridge2.m_ammoSect;
-            shared_str fake_grenade_name = pSettings->r_string(grenade_name, "fake_grenade_name");
+	bool b_if_simple_mode = (!m_bGrenadeMode && m_magazine2.size() && !getRocketCount());
+	if (b_if_simple_mode)
+		pM = &m_magazine2;
 
-            CRocketLauncher::SpawnRocket(*fake_grenade_name, this);
-        }
-    }
-    else
-    {
-        xr_vector<CCartridge>* pM = NULL;
-        bool b_if_grenade_mode = (m_bGrenadeMode && iAmmoElapsed && !getRocketCount());
-        if (b_if_grenade_mode)
-            pM = &m_magazine;
+	if (b_if_grenade_mode || b_if_simple_mode)
+	{
+		shared_str fake_grenade_name = pSettings->r_string(pM->back().m_ammoSect, "fake_grenade_name");
 
-        bool b_if_simple_mode = (!m_bGrenadeMode && m_magazine2.size() && !getRocketCount());
-        if (b_if_simple_mode)
-            pM = &m_magazine2;
+		CRocketLauncher::SpawnRocket(*fake_grenade_name, this);
+	}
 
-        if (b_if_grenade_mode || b_if_simple_mode)
-        {
-            shared_str fake_grenade_name = pSettings->r_string(pM->back().m_ammoSect, "fake_grenade_name");
-
-            CRocketLauncher::SpawnRocket(*fake_grenade_name, this);
-        }
-    }
     return l_res;
 }
 
@@ -182,19 +167,7 @@ void  CWeaponMagazinedWGrenade::PerformSwitchGL()
     swap(m_ammoType, m_ammoType2);
     swap(m_DefaultCartridge, m_DefaultCartridge2);
 
-    xr_vector<CCartridge> l_magazine;
-    while (m_magazine.size())
-    {
-        l_magazine.push_back(m_magazine.back()); m_magazine.pop_back();
-    }
-    while (m_magazine2.size())
-    {
-        m_magazine.push_back(m_magazine2.back()); m_magazine2.pop_back();
-    }
-    while (l_magazine.size())
-    {
-        m_magazine2.push_back(l_magazine.back()); l_magazine.pop_back();
-    }
+    m_magazine.swap(m_magazine2);
     iAmmoElapsed = (int) m_magazine.size();
 
     m_BriefInfo_CalcFrame = 0;
@@ -322,8 +295,7 @@ void  CWeaponMagazinedWGrenade::LaunchGrenade()
             }
             E->g_fireParams(this, p1, d);
         }
-        if (IsGameTypeSingle())
-            p1.set(get_LastFP2());
+        p1.set(get_LastFP2());
 
         Fmatrix							launch_matrix;
         launch_matrix.identity();
@@ -334,7 +306,7 @@ void  CWeaponMagazinedWGrenade::LaunchGrenade()
 
         launch_matrix.c.set(p1);
 
-        if (IsGameTypeSingle() && IsZoomed() && smart_cast<CActor*>(H_Parent()))
+        if (IsZoomed() && smart_cast<CActor*>(H_Parent()))
         {
             H_Parent()->setEnabled(FALSE);
             setEnabled(FALSE);
@@ -426,7 +398,7 @@ void CWeaponMagazinedWGrenade::ReloadMagazine()
     }
 }
 
-void CWeaponMagazinedWGrenade::OnStateSwitch(u32 S)
+void CWeaponMagazinedWGrenade::OnStateSwitch(u32 S, u32 oldState)
 {
     switch (S)
     {
@@ -440,7 +412,7 @@ void CWeaponMagazinedWGrenade::OnStateSwitch(u32 S)
     }break;
     }
 
-    inherited::OnStateSwitch(S);
+    inherited::OnStateSwitch(S, oldState);
     UpdateGrenadeVisibility(!!iAmmoElapsed || S == eReload);
 }
 
@@ -534,11 +506,14 @@ bool CWeaponMagazinedWGrenade::Detach(LPCSTR item_section_name, bool b_spawn_ite
         !xr_strcmp(*m_sGrenadeLauncherName, item_section_name))
     {
         m_flagsAddOnState &= ~CSE_ALifeItemWeapon::eWeaponAddonGrenadeLauncher;
-        if (m_bGrenadeMode)
-        {
-            UnloadMagazine();
-            PerformSwitchGL();
-        }
+		
+		// Now we need to unload GL's magazine
+		if (!m_bGrenadeMode)
+		{
+			PerformSwitchGL();
+		}
+		UnloadMagazine();
+		PerformSwitchGL();        
 
         UpdateAddonsVisibility();
 
@@ -816,6 +791,14 @@ void CWeaponMagazinedWGrenade::net_Import(NET_Packet& P)
         SwitchMode();
 
     inherited::net_Import(P);
+}
+
+float CWeaponMagazinedWGrenade::Weight() const
+{
+    float res = inherited::Weight();
+    res += GetMagazineWeight(m_magazine2);
+
+    return res;
 }
 
 bool CWeaponMagazinedWGrenade::IsNecessaryItem(const shared_str& item_sect)

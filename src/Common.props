@@ -10,17 +10,17 @@
     <xrLibDir>$(xrLibRootDir)$(Configuration)\</xrLibDir>
     <xrIntDir>$(SolutionDir)..\_build\intermediate\$(Configuration)\</xrIntDir>
     <xrSdkDir>$(SolutionDir)..\sdk\</xrSdkDir>
-    <xrGameDir>$(XRAY_16X_GAME)</xrGameDir>
+    <xrGameDir>E:\STALKER\Games\</xrGameDir>
     <xrGameBinDir>$(xrGameDir)bin\</xrGameBinDir>
     <xr3rdPartyDir>$(SolutionDir)3rd party\</xr3rdPartyDir>
     <dxSdkDir>$(xrSdkDir)include\dxsdk\</dxSdkDir>
     <xrLuaDir>$(SolutionDir)3rd party\luajit-2\src\</xrLuaDir>
+    <xrSdkLibDir>E:\STALKER\X-Ray Source\xray-16-libraries\</xrSdkLibDir>
+    <DxLibDir>$(SolutionDir)..\sdk\libraries\</DxLibDir>
   </PropertyGroup>
   <PropertyGroup>
-    <IncludePath>$(SolutionDir)SDK\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)SDK\libraries\x86;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)intermediate\$(Platform)-$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
+    <IncludePath>$(IncludePath);$(xrSdkDir)include;</IncludePath>
+    <OutDir>$(xrGameDir)bin_rel\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -95,6 +95,13 @@
     <BuildMacro Include="xrLuaDir">
       <Value>$(xrLuaDir)</Value>
       <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="xrSdkLibDir">
+      <Value>$(xrSdkLibDir)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="DxLibDir">
+      <Value>$(DxLibDir)</Value>
     </BuildMacro>
   </ItemGroup>
 </Project>

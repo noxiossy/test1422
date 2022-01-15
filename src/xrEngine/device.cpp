@@ -40,7 +40,7 @@ ENGINE_API BOOL g_bRendering = FALSE;
 
 BOOL g_bLoaded = FALSE;
 ref_light precache_light = 0;
-int g_dwFPSlimit = 120;
+int g_dwFPSlimit = 121;
 
 BOOL CRenderDevice::Begin()
 {
@@ -377,10 +377,16 @@ void CRenderDevice::Run()
     mt_bMustExit = FALSE;
     thread_spawn(mt_Thread, "X-RAY Secondary thread", 0, this);
 	// Load FPS Lock
-	if (strstr(Core.Params, "-nofpslock"))
+	if (Core.ParamFlags.test(Core.nofpslock))
 		g_dwFPSlimit = -1;
-	else if (strstr(Core.Params, "-fpslock60"))
-		g_dwFPSlimit = 60;
+	else if (Core.ParamFlags.test(Core.fpslock60))
+		g_dwFPSlimit = 61;
+	else if (Core.ParamFlags.test(Core.fpslock120))
+		g_dwFPSlimit = 121;
+	else if (Core.ParamFlags.test(Core.fpslock144))
+		g_dwFPSlimit = 145;
+	else if (Core.ParamFlags.test(Core.fpslock240))
+		g_dwFPSlimit = 241;
     // Message cycle
     seqAppStart.Process(rp_AppStart);
 

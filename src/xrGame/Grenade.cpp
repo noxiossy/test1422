@@ -94,7 +94,7 @@ void CGrenade::OnH_A_Chield()
 	inherited::OnH_A_Chield				();
 }
 
-void CGrenade::State(u32 state) 
+void CGrenade::State(u32 state, u32 old_state) 
 {
 	switch (state)
 	{
@@ -124,7 +124,7 @@ void CGrenade::State(u32 state)
 			};
 		}break;
 	};
-	inherited::State( state );
+	inherited::State( state, old_state );
 }
 
 bool CGrenade::DropGrenade()
@@ -143,9 +143,12 @@ bool CGrenade::DropGrenade()
 }
 
 void CGrenade::DiscardState()
-{
-	if(IsGameTypeSingle() && (GetState()==eReady || GetState()==eThrow) )
-		OnStateSwitch(eIdle);
+{	
+	u32 state = GetState();
+	if (state==eReady || state==eThrow)
+	{
+		OnStateSwitch(eIdle, state);
+	}
 }
 
 void CGrenade::SendHiddenItem						()
@@ -277,8 +280,6 @@ void CGrenade::UpdateCL()
 {
 	inherited::UpdateCL			();
 	CExplosive::UpdateCL		();
-
-	if(!IsGameTypeSingle())	make_Interpolation();
 }
 
 
@@ -293,23 +294,8 @@ bool CGrenade::Action(u16 cmd, u32 flags)
 		{
             if(flags&CMD_START) 
 			{
-				if(m_pInventory)
-				{
-					TIItemContainer::iterator it = m_pInventory->m_ruck.begin();
-					TIItemContainer::iterator it_e = m_pInventory->m_ruck.end();
-					for(;it!=it_e;++it) 
-					{
-						CGrenade *pGrenade = smart_cast<CGrenade*>(*it);
-						if(pGrenade && xr_strcmp(pGrenade->cNameSect(), cNameSect())) 
-						{
-							m_pInventory->Ruck			(this);
-							m_pInventory->SetActiveSlot	(NO_ACTIVE_SLOT);
-							m_pInventory->Slot			(pGrenade->BaseSlot(),pGrenade);
-							return						true;
-						}
-					}
-					return true;
-				}
+				if (m_pInventory)
+					m_pInventory->ActivateDeffered();
 			}
 			return true;
 		};
@@ -320,11 +306,6 @@ bool CGrenade::Action(u16 cmd, u32 flags)
 
 bool CGrenade::NeedToDestroyObject()	const
 {
-	if ( IsGameTypeSingle()			) return false;
-	if ( Remote()					) return false;
-	if ( TimePassedAfterIndependant() > m_dwGrenadeRemoveTime)
-		return true;
-
 	return false;
 }
 

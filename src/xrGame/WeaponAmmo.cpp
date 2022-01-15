@@ -17,8 +17,10 @@ CCartridge::CCartridge()
 {
 	m_flags.assign			(cfTracer | cfRicochet);
 	m_ammoSect = NULL;
+	m_InvShortName = NULL;
 	param_s.Init();
 	bullet_material_idx = u16(-1);
+	m_4to1_tracer = false;
 }
 
 void CCartridge::Load(LPCSTR section, u8 LocalAmmoType) 
@@ -33,7 +35,7 @@ void CCartridge::Load(LPCSTR section, u8 LocalAmmoType)
 	//m_kPierce				= pSettings->r_float(section, "k_pierce");
 	param_s.kAP					= pSettings->r_float(section, "k_ap");
 	param_s.u8ColorID			= READ_IF_EXISTS(pSettings, r_u8, section, "tracer_color_ID", 0);
-	
+	param_s.kBulletSpeed		= READ_IF_EXISTS(pSettings, r_float, section, "k_bullet_speed", 1.0f);
 	if (pSettings->line_exist(section, "k_air_resistance"))
 		param_s.kAirRes			=  pSettings->r_float(section, "k_air_resistance");
 	else
@@ -73,8 +75,28 @@ void CCartridge::Load(LPCSTR section, u8 LocalAmmoType)
 	m_InvShortName			= CStringTable().translate( pSettings->r_string(section, "inv_name_short"));
 }
 
+float CCartridge::Weight() const
+{
+	auto s = m_ammoSect.c_str();
+	float res = 0;
+	if ( s )
+	{		
+		float box = pSettings->r_float(s, "box_size");
+		if (box > 0)
+		{
+			float w = pSettings->r_float(s, "inv_weight");
+			res = w / box;
+		}			
+	}
+	return res;
+}
+
 CWeaponAmmo::CWeaponAmmo(void) 
 {
+	m_4to1_tracer = false;
+	m_boxSize = 0;
+	m_boxCurr = 0;
+	cartridge_param.Init();
 }
 
 CWeaponAmmo::~CWeaponAmmo(void)
@@ -101,7 +123,9 @@ void CWeaponAmmo::Load(LPCSTR section)
 	m_tracer				= !!pSettings->r_bool(section, "tracer");
 
 	if (pSettings->line_exist(section, "4to1_tracer"))
-		m_4to1_tracer = !!pSettings->r_bool(section, "4to1_tracer");;
+		m_4to1_tracer = !!pSettings->r_bool(section, "4to1_tracer");
+
+	cartridge_param.kBulletSpeed = READ_IF_EXISTS(pSettings, r_float, section, "k_bullet_speed", 1.0f);
 
 	cartridge_param.buckShot		= pSettings->r_s32(  section, "buck_shot");
 	cartridge_param.impair			= pSettings->r_float(section, "impair");
@@ -192,12 +216,6 @@ void CWeaponAmmo::UpdateCL()
 	VERIFY2								(_valid(renderable.xform),*cName());
 	inherited::UpdateCL	();
 	VERIFY2								(_valid(renderable.xform),*cName());
-	
-	if(!IsGameTypeSingle())
-		make_Interpolation	();
-
-	VERIFY2								(_valid(renderable.xform),*cName());
-
 }
 
 void CWeaponAmmo::net_Export(NET_Packet& P) 
@@ -233,12 +251,14 @@ CInventoryItem *CWeaponAmmo::can_make_killing	(const CInventory *inventory) cons
 }
 
 float CWeaponAmmo::Weight() const
-{
-	float res = inherited::Weight();
-
-	res *= (float)m_boxCurr/(float)m_boxSize;
-
-	return res;
+{	
+	if (m_boxSize > 0)
+	{
+		float res = inherited::Weight();
+		res *= (float)m_boxCurr / (float)m_boxSize;
+		return res;
+	}
+	return 0;	
 }
 
 u32 CWeaponAmmo::Cost() const

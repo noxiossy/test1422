@@ -4,8 +4,10 @@
 #include "object_broker.h"
 #include "UICellItem.h"
 #include "UICursor.h"
+#include "../Level.h"
 //Alundaio
-#include "../Inventory.h" 
+#include "../Inventory.h"
+#include <dinput.h>
 //-Alundaio
 
 CUIDragItem* CUIDragDropListEx::m_drag_item = NULL;
@@ -146,8 +148,8 @@ void CUIDragDropListEx::DestroyDragItem()
 }
 
 Fvector2 CUIDragDropListEx::GetDragItemPosition()
-{
-	return m_drag_item->GetPosition();
+{	//Alun: More accurate then Left-Top of dragged icon
+	return GetUICursor().GetCursorPosition(); //m_drag_item->GetPosition();
 }
 
 
@@ -175,7 +177,7 @@ void CUIDragDropListEx::OnItemDrop(CUIWindow* w, void* pData)
 	CUICellItem*		itm				= smart_cast<CUICellItem*>(w);
 	VERIFY								(itm->OwnerList() == itm->OwnerList());
 
-	if(m_f_item_drop && m_f_item_drop(itm) ){
+	if(m_f_item_drop && m_f_item_drop(itm)){
 		DestroyDragItem						();
 		return;
 	}
@@ -188,12 +190,15 @@ void CUIDragDropListEx::OnItemDrop(CUIWindow* w, void* pData)
 	if(old_owner&&new_owner && !b)
 	{
 		CUICellItem* i					= old_owner->RemoveItem(itm, (old_owner==new_owner) );
-		while(i->ChildsCount())
+		if (new_owner->CanSetItem(i))
 		{
-			CUICellItem* _chld				= i->PopChild(NULL);
-			new_owner->SetItem				(_chld, old_owner->GetDragItemPosition());
+			while(i->ChildsCount())
+			{
+				CUICellItem* _chld				= i->PopChild(NULL);
+				new_owner->SetItem				(_chld, old_owner->GetDragItemPosition());
+			}
+			new_owner->SetItem				(i,old_owner->GetDragItemPosition());
 		}
-		new_owner->SetItem				(i,old_owner->GetDragItemPosition());
 	}
 	DestroyDragItem						();
 }
@@ -203,9 +208,20 @@ void CUIDragDropListEx::OnItemDBClick(CUIWindow* w, void* pData)
 	OnItemSelected						(w, pData);
 	CUICellItem*		itm				= smart_cast<CUICellItem*>(w);
 
-	if(m_f_item_db_click && m_f_item_db_click(itm) ){
-		DestroyDragItem						();
-		return;
+	if (m_f_item_db_click)
+	{
+		if (Level().IR_GetKeyState(DIK_LCONTROL))
+		{
+			u32 size = itm->ChildsCount();
+			for (u32 j = 0; j < size; j++)
+				m_f_item_db_click(itm);
+		}
+
+		if (m_f_item_db_click(itm))
+		{
+			DestroyDragItem();
+			return;
+		}
 	}
 
 	CUIDragDropListEx*	old_owner		= itm->OwnerList();
@@ -550,9 +566,8 @@ bool CUICellContainer::AddSimilar(CUICellItem* itm)
 		if (iitem->m_pInventory->ItemFromSlot(iitem->BaseSlot()) == iitem)
 			return false;
 
-		if (pSettings->line_exist(iitem->m_section_id, "dont_stack") && pSettings->r_bool(iitem->m_section_id, "dont_stack") == TRUE)
+		if (!iitem->CanStack())
 			return false;
-
 	}
 	//-Alundaio
 
@@ -575,6 +590,12 @@ CUICellItem* CUICellContainer::FindSimilar(CUICellItem* itm)
 #else
 		CUICellItem* i = (CUICellItem*)(*it);
 #endif
+		if (i == itm)
+			continue;
+
+		if (!i->EqualTo(itm))
+			continue;
+
 		//Alundaio: Don't stack equipped items
 		PIItem	iitem = (PIItem)i->m_pData;
 		if (iitem && iitem->m_pInventory)
@@ -582,17 +603,12 @@ CUICellItem* CUICellContainer::FindSimilar(CUICellItem* itm)
 			if (iitem->m_pInventory->ItemFromSlot(iitem->BaseSlot()) == iitem)
 				continue;
 
-			if (pSettings->line_exist(iitem->m_section_id, "dont_stack") && pSettings->r_bool(iitem->m_section_id, "dont_stack") == TRUE)
+			if (!iitem->CanStack())
 				continue;
-
 		}
 		//-Alundaio
 
-		if (i == itm)
-			continue;
-
-		if(i->EqualTo(itm))
-			return i;
+		return i;
 	}
 	return NULL;
 }
@@ -804,8 +820,8 @@ u32 CUICellContainer::GetCellsInRange(const Irect& rect, UI_CELLS_VEC& res)
 		for(int y=rect.y1;y<=rect.y2;++y)
 			res.push_back	(GetCellAt(Ivector2().set(x,y)));
 
-	std::unique				(res.begin(), res.end());
-	return res.size			();
+	res.erase(std::unique(res.begin(), res.end()),res.end());
+	return res.size();
 }
 
 void CUICellContainer::ReinitSize()

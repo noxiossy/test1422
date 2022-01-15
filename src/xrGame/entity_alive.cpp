@@ -283,7 +283,7 @@ void	CEntityAlive::Hit(SHit* pHDS)
 			StartBloodDrops(pWound);
 	}
 
-	if (HDS.hit_type != ALife::eHitTypeTelepatic){
+	if (HDS.hit_type != ALife::eHitTypeTelepatic && HDS.hit_type != ALife::eHitTypeRadiation){
 		//добавить кровь на стены
 		if (!use_simplified_visual())
 			BloodyWallmarks (HDS.damage(), HDS.dir, HDS.bone(), HDS.p_in_bone_space);
@@ -305,16 +305,20 @@ void	CEntityAlive::Hit(SHit* pHDS)
 
 }
 
+void CEntityAlive::OnEvent(NET_Packet& P, u16 type)
+{
+	inherited::OnEvent(P, type);
+}
+
 void CEntityAlive::Die	(CObject* who)
 {
-	if(IsGameTypeSingle())
-		RELATION_REGISTRY().Action(smart_cast<CEntityAlive*>(who), this, RELATION_REGISTRY::KILL);
+	RELATION_REGISTRY().Action(smart_cast<CEntityAlive*>(who), this, RELATION_REGISTRY::KILL);
 	inherited::Die(who);
 	
 	const CGameObject *who_object = smart_cast<const CGameObject*>(who);
 	callback(GameObject::eDeath)(lua_game_object(), who_object ? who_object->lua_game_object() : 0);
 
-	if (!getDestroy() && (GameID() == eGameIDSingle)) {
+	if (!getDestroy()) {
 		NET_Packet		P;
 		u_EventGen		(P,GE_ASSIGN_KILLER,ID());
 		P.w_u16			(u16(who->ID()));

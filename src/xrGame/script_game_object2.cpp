@@ -37,6 +37,7 @@
 #include "car.h"
 #include "movement_manager.h"
 #include "detail_path_manager.h"
+#include "CharacterPhysicsSupport.h"
 
 void CScriptGameObject::explode	(u32 level_time)
 {
@@ -323,14 +324,26 @@ void CScriptGameObject::RestoreDefaultStartDialog()
 	pDialogManager->RestoreDefaultStartDialog();
 }
 
-void CScriptGameObject::SetActorPosition			(Fvector pos)
+void CScriptGameObject::SetActorPosition(Fvector pos, bool bskip_collision_correct)
 {
 	CActor* actor = smart_cast<CActor*>(&object());
-	if(actor){
-		Fmatrix F = actor->XFORM();
-		F.c = pos;
-		actor->ForceTransform(F);
-//		actor->XFORM().c = pos;
+	if (actor){
+		if (bskip_collision_correct)
+		{
+			Fmatrix F = actor->XFORM();
+			F.c = pos;
+			actor->XFORM().set(F);
+			if (actor->character_physics_support()->movement()->CharacterExist())
+			{
+				actor->character_physics_support()->movement()->SetPosition(F.c);
+				actor->character_physics_support()->movement()->SetVelocity(0.f, 0.f, 0.f);
+			}
+		}
+		else {
+			Fmatrix F = actor->XFORM();
+			F.c = pos;
+			actor->ForceTransform(F);
+		}
 	}else
 		ai().script_engine().script_log		(ScriptStorage::eLuaMessageTypeError,"ScriptGameObject : attempt to call SetActorPosition method for non-actor object");
 
@@ -355,11 +368,12 @@ void CScriptGameObject::SetNpcPosition			(Fvector pos)
 void CScriptGameObject::SetActorDirection		(float dir)
 {
 	CActor* actor = smart_cast<CActor*>(&object());
-	if(actor){
-		actor->cam_Active()->Set(dir,0,0);
-//		actor->XFORM().setXYZ(0,dir,0);
-	}else
-		ai().script_engine().script_log		(ScriptStorage::eLuaMessageTypeError,"ScriptGameObject : attempt to call SetActorDirection method for non-actor object");
+	if (actor)
+	{
+		actor->cam_Active()->Set(dir, 0, 0);
+		return;
+	}
+	object().XFORM().setXYZ(0, dir, 0);
 }
 
 void CScriptGameObject::DisableHitMarks			(bool disable)
@@ -528,16 +542,43 @@ void CScriptGameObject::set_visual_name(LPCSTR visual)
 {
 	object().cNameVisual_set(visual);
 
-	/*
-	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
-	if (!stalker)
-		return;
+	CActor* actor = smart_cast<CActor*>(&object());
+	if (actor)
+		actor->OnChangeVisual();
 
-	stalker->ResetBoneProtections(NULL,NULL);
-	*/
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (stalker)
+		stalker->OnChangeVisual();
 }
 
 LPCSTR CScriptGameObject::get_visual_name() const
 {
 	return object().cNameVisual().c_str();
+}
+
+void CScriptGameObject::RemoveMemorySoundObject(const MemorySpace::CSoundObject &memory_object)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		return;
+
+	stalker->memory().sound().remove(&memory_object);
+}
+
+void CScriptGameObject::RemoveMemoryHitObject(const MemorySpace::CHitObject &memory_object)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		return;
+
+	stalker->memory().hit().remove(&memory_object);
+}
+
+void CScriptGameObject::RemoveMemoryVisibleObject(const MemorySpace::CVisibleObject &memory_object)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+		return;
+
+	stalker->memory().visual().remove(&memory_object);
 }

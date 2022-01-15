@@ -55,9 +55,12 @@ CWeaponMagazined::CWeaponMagazined(ESoundTypes eSoundType) : CWeapon()
 
     m_bFireSingleShot = false;
     m_iShotNum = 0;
-    m_fOldBulletSpeed = 0;
+    m_fOldBulletSpeed = 0.f;
     m_iQueueSize = WEAPON_ININITE_QUEUE;
     m_bLockType = false;
+	m_bHasDifferentFireModes = false;
+	m_iCurFireMode = -1;
+	m_iPrefferedFireMode = -1;
 }
 
 CWeaponMagazined::~CWeaponMagazined()
@@ -236,7 +239,7 @@ bool CWeaponMagazined::TryReload()
 {
     if (m_pInventory)
     {
-        if (IsGameTypeSingle() && ParentIsActor())
+        if (ParentIsActor())
         {
             int	AC = GetSuitableAmmoTotal();
             Actor()->callback(GameObject::eWeaponNoAmmoAvailable)(lua_game_object(), AC);
@@ -262,7 +265,7 @@ bool CWeaponMagazined::TryReload()
             m_pCurrentAmmo = smart_cast<CWeaponAmmo*>(m_pInventory->GetAny(m_ammoTypes[i].c_str()));
             if (m_pCurrentAmmo)
             {
-                m_ammoType = i;
+                m_set_next_ammoType_on_reload = i;
                 SetPending(TRUE);
                 SwitchState(eReload);
                 return				true;
@@ -290,7 +293,7 @@ bool CWeaponMagazined::IsAmmoAvailable()
 void CWeaponMagazined::OnMagazineEmpty()
 {
 #ifdef	EXTENDED_WEAPON_CALLBACKS
-	if (IsGameTypeSingle() && ParentIsActor())
+	if (ParentIsActor())
 	{
 		int	AC = GetSuitableAmmoTotal();
 		Actor()->callback(GameObject::eOnWeaponMagazineEmpty)(lua_game_object(), AC);
@@ -335,7 +338,7 @@ void CWeaponMagazined::UnloadMagazine(bool spawn_ammo)
     VERIFY((u32) iAmmoElapsed == m_magazine.size());
 
 #ifdef	EXTENDED_WEAPON_CALLBACKS
-	if (IsGameTypeSingle() && ParentIsActor())
+	if (ParentIsActor())
 	{
 		int	AC = GetSuitableAmmoTotal();
 		Actor()->callback(GameObject::eOnWeaponMagazineEmpty)(lua_game_object(), AC);
@@ -451,9 +454,9 @@ void CWeaponMagazined::ReloadMagazine()
     VERIFY((u32) iAmmoElapsed == m_magazine.size());
 }
 
-void CWeaponMagazined::OnStateSwitch(u32 S)
+void CWeaponMagazined::OnStateSwitch(u32 S, u32 oldState)
 {
-    inherited::OnStateSwitch(S);
+    inherited::OnStateSwitch(S, oldState);
     CInventoryOwner* owner = smart_cast<CInventoryOwner*>(this->H_Parent());
     switch (S)
     {
@@ -483,7 +486,9 @@ void CWeaponMagazined::OnStateSwitch(u32 S)
     case eHiding:
         if (owner)
             m_sounds_enabled = owner->CanPlayShHdRldSounds();
-        switch2_Hiding();
+
+		if (oldState != eHiding)
+			switch2_Hiding();
         break;
     case eHidden:
         switch2_Hidden();
@@ -548,36 +553,33 @@ void CWeaponMagazined::state_Fire(float dt)
 {
     if (iAmmoElapsed > 0)
     {
-        VERIFY(fOneShotTime > 0.f);
-
-        Fvector					p1, d;
-        p1.set(get_LastFP());
-        d.set(get_LastFD());
-
-        if (!H_Parent()) return;
-        if (smart_cast<CMPPlayersBag*>(H_Parent()) != NULL)
-        {
-            Msg("! WARNING: state_Fire of object [%d][%s] while parent is CMPPlayerBag...", ID(), cNameSect().c_str());
-            return;
-        }
+        if (!H_Parent())
+		{
+			StopShooting();
+			return;
+		}
 
         CInventoryOwner* io = smart_cast<CInventoryOwner*>(H_Parent());
-        if (NULL == io->inventory().ActiveItem())
+        if (!io->inventory().ActiveItem())
         {
-            Log("current_state", GetState());
-            Log("next_state", GetNextState());
-            Log("item_sect", cNameSect().c_str());
-            Log("H_Parent", H_Parent()->cNameSect().c_str());
 			StopShooting();
-			return; //Alundaio: This is not supposed to happen but it does. GSC was aware but why no return here? Known to cause crash on game load if npc immediatly enters combat.
+			return;
         }
 
-        CEntity* E = smart_cast<CEntity*>(H_Parent());
-        E->g_fireParams(this, p1, d);
-
+		CEntity* E = smart_cast<CEntity*>(H_Parent());
         if (!E->g_stateFire())
+		{
             StopShooting();
+			return;
+		}
 
+		Fvector p1, d;
+        p1.set(get_LastFP());
+        d.set(get_LastFD());
+		
+        
+        E->g_fireParams(this, p1, d);
+		
         if (m_iShotNum == 0)
         {
             m_vStartPos = p1;
@@ -598,7 +600,7 @@ void CWeaponMagazined::state_Fire(float dt)
 
 			//Alundaio: Use fModeShotTime instead of fOneShotTime if current fire mode is 2-shot burst
 			//Alundaio: Cycle down RPM after two shots; used for Abakan/AN-94
-			if (GetCurrentFireMode() == 2 || (bCycleDown == true && m_iShotNum <= 1) )
+			if (GetCurrentFireMode() == 2 || (bCycleDown == true && m_iShotNum < 1) )
 			{
 				fShotTimeCounter = fModeShotTime;
 			}
@@ -1093,7 +1095,7 @@ m_zoom_params.m_fIronSightZoomFactor = READ_IF_EXISTS( pSettings, r_float, cName
 */
 void CWeaponMagazined::InitAddons()
 {
-    m_zoom_params.m_fIronSightZoomFactor = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "ironsight_zoom_factor", 50.0f);
+    m_zoom_params.m_fIronSightZoomFactor = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "ironsight_zoom_factor", 1.03f);
     if (IsScopeAttached())
     {
         shared_str scope_tex_name;
@@ -1108,6 +1110,7 @@ void CWeaponMagazined::InitAddons()
             m_zoom_params.m_sUseZoomPostprocess = READ_IF_EXISTS(pSettings, r_string, GetScopeName(), "scope_nightvision", 0);
             m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, GetScopeName(), "scope_dynamic_zoom", FALSE);
             m_zoom_params.m_sUseBinocularVision = READ_IF_EXISTS(pSettings, r_string, GetScopeName(), "scope_alive_detector", 0);
+            m_fRTZoomFactor = m_zoom_params.m_fScopeZoomFactor;
             if (m_UIScope)
             {
                 xr_delete(m_UIScope);

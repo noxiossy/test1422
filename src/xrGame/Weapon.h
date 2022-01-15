@@ -13,6 +13,7 @@
 #include "first_bullet_controller.h"
 
 #include "CameraRecoil.h"
+#include "actor.h"
 
 class CEntity;
 class ENGINE_API CMotionDef;
@@ -309,7 +310,10 @@ public:
 
     bool			ZoomHideCrosshair()
     {
-        return m_zoom_params.m_bHideCrosshairInZoom || ZoomTexture();
+		CActor *pA = smart_cast<CActor *>(H_Parent());
+		if (pA && pA->active_cam() == eacLookAt)
+			return false;
+		return m_zoom_params.m_bHideCrosshairInZoom || ZoomTexture();
     }
 
     IC float				GetZoomFactor() const
@@ -428,7 +432,7 @@ protected:
     virtual void			SetDefaults();
 
     virtual bool			MovingAnimAllowedNow();
-    virtual void			OnStateSwitch(u32 S);
+    virtual void			OnStateSwitch(u32 S, u32 oldState);
     virtual void			OnAnimationEnd(u32 state);
 
     //трассирование полета пули
@@ -519,8 +523,8 @@ protected:
 
     //для сталкеров, чтоб они знали эффективные границы использования
     //оружия
-    float					m_fMinRadius;
-    float					m_fMaxRadius;
+    //float					m_fMinRadius;
+    //float					m_fMaxRadius;
 
 protected:
     //для второго ствола
@@ -628,6 +632,8 @@ public:
     {
         return m_can_be_strapped;
     };
+
+    float					GetMagazineWeight(const decltype(m_magazine)& mag) const;
 
 protected:
     u32						m_ef_main_weapon_type;

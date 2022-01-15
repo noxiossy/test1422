@@ -291,6 +291,14 @@ void CALifeSimulator__release					(CALifeSimulator *self, CSE_Abstract *object, 
 		return;
 	}
 
+	// awesome hack, for everyone only
+	CObject* obj = Level().Objects.net_Find(object->ID);
+	if (!obj)
+		return;
+
+	if (obj->getDestroy())
+		return;
+
 	// awful hack, for stohe only
 	NET_Packet							packet;
 	packet.w_begin						(M_EVENT);
@@ -298,6 +306,11 @@ void CALifeSimulator__release					(CALifeSimulator *self, CSE_Abstract *object, 
 	packet.w_u16						(GE_DESTROY);
 	packet.w_u16						(object->ID);
 	Level().Send						(packet,net_flags(TRUE,TRUE));
+}
+
+void CALifeSimulator__release2(CALifeSimulator *self, CSE_Abstract *object)
+{
+	CALifeSimulator__release(self, object, false);
 }
 
 LPCSTR get_level_name							(const CALifeSimulator *self, int level_id)
@@ -343,7 +356,7 @@ void teleport_object(CALifeSimulator *alife, ALife::_OBJECT_ID id, GameGraph::_G
 	alife->teleport_object(id, game_vertex_id, level_vertex_id, position);
 }
 
-void IterateInfo(const CALifeSimulator *alife, const ALife::_OBJECT_ID &id, luabind::functor<void> functor)
+void IterateInfo(const CALifeSimulator *alife, const ALife::_OBJECT_ID &id,const luabind::functor<bool> &functor)
 {
 	const KNOWN_INFO_VECTOR	*known_info = registry(alife, id);
 	if (!known_info)
@@ -352,7 +365,8 @@ void IterateInfo(const CALifeSimulator *alife, const ALife::_OBJECT_ID &id, luab
 	xr_vector<shared_str>::const_iterator	I = known_info->begin();
 	xr_vector<shared_str>::const_iterator	E = known_info->end();
 	for (; I != E; ++I)
-		functor(id, (LPCSTR)(*I).c_str());
+		if (functor(id, (LPCSTR)(*I).c_str()) == true)
+			return;
 }
 
 CSE_Abstract* reprocess_spawn(CALifeSimulator *self, CSE_Abstract *object)
@@ -441,6 +455,7 @@ void CALifeSimulator::script_register			(lua_State *L)
 			.def("create",					&CALifeSimulator__spawn_item3)
 			.def("create_ammo",				&CALifeSimulator__spawn_ammo)
 			.def("release",					&CALifeSimulator__release)
+			.def("release",					&CALifeSimulator__release2)
 			.def("spawn_id",				&CALifeSimulator__spawn_id)
 			.def("actor",					&get_actor)
 			.def("has_info",				&has_info)

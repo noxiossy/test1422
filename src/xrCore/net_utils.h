@@ -78,7 +78,7 @@ public:
     u32 timeReceive;
     bool w_allow;
 public:
-    NET_Packet() :inistream(NULL), w_allow(true) {}
+	NET_Packet() :inistream(NULL), w_allow(true) { r_pos = 0; timeReceive = 0; }
     // writing - main
     IC void write_start() { B.count = 0; INI_W(move_begin()); }
     IC void w_begin(u16 type) { B.count = 0; w_u16(type); }
@@ -215,6 +215,12 @@ public:
         VERIFY(p && count);
         CopyMemory(p, &B.data[r_pos], count);
         r_pos += count;
+		//Alun: To find the cause
+		if (r_pos > B.count)
+		{
+			LogStackTrace("---------r_pos > B.count-------");
+			Msg("count=%d r_pos=%d B.count=%d", count, r_pos, B.count);
+		}
         VERIFY(r_pos <= B.count);
     }
     BOOL r_eof();

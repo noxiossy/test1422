@@ -374,6 +374,25 @@ void CSoundMemoryManager::remove_links	(CObject *object)
 #endif
 }
 
+struct CRemoveSoundObjectPredicate {
+	const MemorySpace::CSoundObject *m_object;
+
+	CRemoveSoundObjectPredicate(const MemorySpace::CSoundObject *object) : m_object(object)
+	{
+	}
+	bool operator() (const MemorySpace::CSoundObject &object) const
+	{
+		return (m_object == &object);
+	}
+};
+
+void CSoundMemoryManager::remove(const MemorySpace::CSoundObject *sound_object)
+{
+	SOUNDS::iterator I = std::find_if(m_sounds->begin(), m_sounds->end(), CRemoveSoundObjectPredicate(sound_object));
+	if (I != m_sounds->end())
+		m_sounds->erase(I);
+}
+
 void CSoundMemoryManager::save	(NET_Packet &packet) const
 {
 	if (!m_object->g_Alive())
@@ -452,17 +471,16 @@ void CSoundMemoryManager::load	(IReader &packet)
 		packet.r_float				(object.m_self_params.m_orientation.roll);
 #endif
 #ifdef USE_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= object.m_level_time);
 		object.m_level_time			= packet.r_u32();
-		object.m_level_time			+= Device.dwTimeGlobal;
+		VERIFY(Device.dwTimeGlobal >= object.m_level_time);
+		object.m_level_time			= Device.dwTimeGlobal - object.m_level_time;
 #endif // USE_LEVEL_TIME
 #ifdef USE_LAST_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= object.m_last_level_time);
 		object.m_last_level_time	= packet.r_u32();
-		object.m_last_level_time	+= Device.dwTimeGlobal;
+		VERIFY(Device.dwTimeGlobal >= object.m_last_level_time);
+		object.m_last_level_time	= Device.dwTimeGlobal - object.m_last_level_time;
 #endif // USE_LAST_LEVEL_TIME
 #ifdef USE_FIRST_LEVEL_TIME
-		VERIFY						(Device.dwTimeGlobal >= (*I).m_first_level_time);
 		object.m_first_level_time	= packet.r_u32();
 		object.m_first_level_time	+= Device.dwTimeGlobal;
 #endif // USE_FIRST_LEVEL_TIME

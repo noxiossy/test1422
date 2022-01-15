@@ -204,8 +204,6 @@ void CGameObject::OnEvent		(NET_Packet& P, u16 type)
 			{
 			case GE_HIT_STATISTIC:
 				{
-					if (GameID() != eGameIDSingle)
-						Game().m_WeaponUsageStatistic->OnBullet_Check_Request(&HDS);
 				}break;
 			default:
 				{
@@ -214,13 +212,6 @@ void CGameObject::OnEvent		(NET_Packet& P, u16 type)
 			SetHitInfo(Hitter, Weapon, HDS.bone(), HDS.p_in_bone_space, HDS.dir);
 			Hit				(&HDS);
 			//---------------------------------------------------------------------------
-			if (GameID() != eGameIDSingle)
-			{
-				Game().m_WeaponUsageStatistic->OnBullet_Check_Result(false);
-				game_cl_mp*	mp_game = smart_cast<game_cl_mp*>(&Game());
-				if (mp_game->get_reward_generator())
-					mp_game->get_reward_generator()->OnBullet_Hit(Hitter, this, Weapon, HDS.boneID);
-			}
 			//---------------------------------------------------------------------------
 		}
 		break;
@@ -294,10 +285,7 @@ BOOL CGameObject::net_Spawn		(CSE_Abstract*	DC)
 	}
 	//-Alundaio
 
-
 	setID							(E->ID);
-//	if (GameID() != eGameIDSingle)
-//		Msg ("CGameObject::net_Spawn -- object %s[%x] setID [%d]", *(E->s_name), this, E->ID);
 	
 	// XForm
 	XFORM().setXYZ					(E->o_Angle);
@@ -978,7 +966,7 @@ void CGameObject::create_anim_mov_ctrl	( CBlend *b, Fmatrix *start_pose, bool lo
 //		start_pose		= &renderable.xform;
 		if( m_anim_mov_ctrl )
 			destroy_anim_mov_ctrl();
-
+#ifdef DEBUG
 		VERIFY2			(
 			start_pose,
 			make_string(
@@ -996,7 +984,7 @@ void CGameObject::create_anim_mov_ctrl	( CBlend *b, Fmatrix *start_pose, bool lo
 				smart_cast<IKinematicsAnimated&>(*Visual()).LL_MotionDefName_dbg(b->motionID).second
 			)
 		);
-		
+#endif		
 		VERIFY			(Visual());
 		IKinematics		*K = Visual( )->dcast_PKinematics( );
 		VERIFY			( K );
