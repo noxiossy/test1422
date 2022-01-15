@@ -7,8 +7,7 @@ LPSTR _TrimLeft(LPSTR str)
     while (*p && (u8(*p) <= u8(' '))) p++;
     if (p != str)
     {
-		LPSTR t = str
-        for (; *p; t++, p++) *t = *p;
+        for (LPSTR t = str; *p; t++, p++) *t = *p;
         *t = 0;
     }
     return str;
